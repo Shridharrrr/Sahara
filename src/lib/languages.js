@@ -1,5 +1,5 @@
 export const languages = [
-    { code: "hi-IN", name: "हिंदी", flag: "🇮🇳" },
-    { code: "mr-IN", name: "मराठी", flag: "🇮🇳" },
-    { code: "en-IN", name: "English", flag: "🇮🇳" },
+    { code: "en", name: "English", nameEn: "English" },
+    { code: "hi", name: "हिंदी", nameEn: "Hindi"},
+    { code: "mr", name: "मराठी", nameEn: "Marathi" },
   ];

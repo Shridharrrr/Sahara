@@ -22,6 +22,8 @@ import {
   updateProfile,
 } from "firebase/auth";
 import { doc, setDoc, getDoc } from "firebase/firestore";
+import { languages } from "@/lib/languages";
+import { translations } from "@/lib/translations/auth";
 
 export default function AuthPage() {
   const [isLogin, setIsLogin] = useState(true);
@@ -49,92 +51,6 @@ export default function AuthPage() {
   });
 
   const [otp, setOtp] = useState("");
-
-  // Language options with translations
-  const languages = [
-    { code: "en", name: "English", nameEn: "English" },
-    { code: "hi", name: "हिंदी", nameEn: "Hindi"},
-    { code: "mr", name: "मराठी", nameEn: "Marathi" },
-  ];
-
-  // Translations
-  const translations = {
-    hi: {
-      title: "सहारा में आपका स्वागत है",
-      subtitle: "आपके अधिकारों का साथी",
-      login: "लॉगिन करें",
-      register: "पंजीकृत करें",
-      name: "पूरा नाम",
-      email: "ईमेल पता",
-      phone: "मोबाइल नंबर",
-      password: "पासवर्ड",
-      street: "पूरा पता",
-      city: "शहर",
-      state: "राज्य",
-      pincode: "पिन कोड",
-      language: "भाषा चुनें",
-      loginBtn: "लॉगिन करें",
-      registerBtn: "खाता बनाएं",
-      switchToRegister: "खाता नहीं है? पंजीकृत करें",
-      switchToLogin: "खाता है? लॉगिन करें",
-      phoneAuth: "फोन से लॉगिन करें",
-      emailAuth: "ईमेल से लॉगिन करें",
-      sendOtp: "OTP भेजें",
-      verifyOtp: "OTP सत्यापित करें",
-      enterOtp: "OTP दर्ज करें",
-      resendOtp: "OTP दोबारा भेजें",
-    },
-    mr: {
-      title: "सहाऱ्यात आपले स्वागत आहे",
-      subtitle: "आपल्या अधिकारांचा साथी",
-      login: "लॉगिन करा",
-      register: "नोंदणी करा",
-      name: "पूर्ण नाव",
-      email: "ईमेल पत्ता",
-      phone: "मोबाईल नंबर",
-      password: "पासवर्ड",
-      street: "पूर्ण पत्ता",
-      city: "शहर",
-      state: "राज्य",
-      pincode: "पिन कोड",
-      language: "भाषा निवडा",
-      loginBtn: "लॉगिन करा",
-      registerBtn: "खाते तयार करा",
-      switchToRegister: "खाते नाही? नोंदणी करा",
-      switchToLogin: "खाते आहे? लॉगिन करा",
-      phoneAuth: "फोनने लॉगिन करा",
-      emailAuth: "ईमेलने लॉगिन करा",
-      sendOtp: "OTP पाठवा",
-      verifyOtp: "OTP सत्यापित करा",
-      enterOtp: "OTP टाका",
-      resendOtp: "OTP पुन्हा पाठवा",
-    },
-    en: {
-      title: "Welcome to Sahara",
-      subtitle: "Your Rights Companion",
-      login: "Login",
-      register: "Register",
-      name: "Full Name",
-      email: "Email Address",
-      phone: "Mobile Number",
-      password: "Password",
-      street: "Full Address",
-      city: "City",
-      state: "State",
-      pincode: "Pin Code",
-      language: "Select Language",
-      loginBtn: "Login",
-      registerBtn: "Create Account",
-      switchToRegister: "No account? Register here",
-      switchToLogin: "Have account? Login here",
-      phoneAuth: "Login with Phone",
-      emailAuth: "Login with Email",
-      sendOtp: "Send OTP",
-      verifyOtp: "Verify OTP",
-      enterOtp: "Enter OTP",
-      resendOtp: "Resend OTP",
-    },
-  };
 
   const t = translations[selectedLanguage];
 
@@ -239,9 +155,9 @@ export default function AuthPage() {
         formData.password
       );
 
-      // Update last login
+      // Update last login and language
       const userRef = doc(db, "users", userCredential.user.uid);
-      await setDoc(userRef, { lastLogin: new Date() }, { merge: true });
+      await setDoc(userRef, { lastLogin: new Date(), preferredLanguage: selectedLanguage }, { merge: true });
 
       showMessage(
         "सफलतापूर्वक लॉगिन हो गए! | Successfully logged in!",

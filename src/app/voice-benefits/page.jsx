@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { translations } from "@/lib/translations";
+import { translations } from "@/lib/translations/voice-benefits";
 import { benefitSchemes } from "@/lib/benefitSchemes";
 import { Mic, MicOff, Volume2, FileText, MapPin, Users, Heart, Save, History, LogOut, User, Settings,ChevronDown } from "lucide-react";
 import { auth, db } from "@/lib/firebase/firebase";
