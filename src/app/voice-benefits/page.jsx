@@ -4,10 +4,17 @@ import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { translations } from "@/lib/translations/voice-benefits";
 import { benefitSchemes } from "@/lib/benefitSchemes";
-import { Mic, MicOff, Volume2, FileText, MapPin, Users, Heart, Save, History, LogOut, User, Settings,ChevronDown } from "lucide-react";
+import { 
+  Mic, MicOff, Volume2, FileText, MapPin, Users, Heart, Save, History, 
+  LogOut, User, Settings, ChevronDown, Brain, Zap, CheckCircle, AlertCircle 
+} from "lucide-react";
 import { auth, db } from "@/lib/firebase/firebase";
 import { onAuthStateChanged, signOut } from "firebase/auth";
-import { collection, addDoc, getDocs, query, where, orderBy, limit, doc, getDoc,} from "firebase/firestore";
+import { 
+  collection, addDoc, getDocs, query, where, orderBy, limit, 
+  doc, getDoc, Timestamp 
+} from "firebase/firestore";
+import { aiMatchingService, formatMatchScore, formatEligibilityStatus } from '@/lib/aiMatchingService';
 
 export default function VoiceToBenefitPage() {
   const [user, setUser] = useState(null);
@@ -24,14 +31,22 @@ export default function VoiceToBenefitPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState("");
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [aiResults, setAiResults] = useState(null);
+  const [processingError, setProcessingError] = useState(null);
   const recognitionRef = useRef(null);
   const router = useRouter();
+
+  // Language options
+  const languages = [
+    { code: 'hi-IN', name: 'हिंदी', flag: '🇮🇳' },
+    { code: 'mr-IN', name: 'मराठी', flag: '🇮🇳' },
+    { code: 'en-IN', name: 'English', flag: '🇮🇳' }
+  ];
   
   const t = translations[selectedLanguage] || translations["en-IN"];
 
   // Authentication check
   useEffect(() => {
-
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser) {
         setUser(currentUser);
@@ -47,6 +62,23 @@ export default function VoiceToBenefitPage() {
     return () => unsubscribe();
   }, [router]);
 
+  // Close user menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (!event.target.closest('.user-menu-container')) {
+        setShowUserMenu(false);
+      }
+    };
+
+    if (showUserMenu) {
+      document.addEventListener('click', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('click', handleClickOutside);
+    };
+  }, [showUserMenu]);
+
   // Load user profile from Firestore
   const loadUserProfile = async (userId) => {
     try {
@@ -56,22 +88,23 @@ export default function VoiceToBenefitPage() {
         setUserProfile(profile);
         // Set language based on user preference
         if (profile.preferredLanguage) {
-        let langCode;
-        switch(profile.preferredLanguage) {
-          case 'hi':
-            langCode = 'hi-IN'; // Hindi - India
-            break;
-          case 'mr':
-            langCode = 'mr-IN'; // Marathi - India
-            break;
-          default:
-            langCode = 'en-IN'; // English - India
+          let langCode;
+          switch(profile.preferredLanguage) {
+            case 'hi':
+              langCode = 'hi-IN'; // Hindi - India
+              break;
+            case 'mr':
+              langCode = 'mr-IN'; // Marathi - India
+              break;
+            default:
+              langCode = 'en-IN'; // English - India
+          }
+          setSelectedLanguage(langCode);
         }
-        setSelectedLanguage(langCode);
-      }
       }
     } catch (error) {
       console.error("Error loading user profile:", error);
+      setProcessingError("Failed to load user profile.");
     }
   };
 
@@ -95,7 +128,13 @@ export default function VoiceToBenefitPage() {
       const querySnapshot = await getDocs(sessionsQuery);
       const sessions = [];
       querySnapshot.forEach((doc) => {
-        sessions.push({ id: doc.id, ...doc.data() });
+        const data = doc.data();
+        sessions.push({ 
+          id: doc.id, 
+          ...data,
+          // Handle different timestamp formats
+          timestamp: data.timestamp?.toDate ? data.timestamp.toDate() : new Date(data.timestamp)
+        });
       });
 
       setPreviousSessions(sessions);
@@ -104,29 +143,37 @@ export default function VoiceToBenefitPage() {
     }
   };
 
-  // Initialize speech recognition
+  // Initialize speech recognition with proper error handling
   useEffect(() => {
-    if (typeof window !== "undefined" && "webkitSpeechRecognition" in window) {
-      const recognition = new window.webkitSpeechRecognition();
+    if (typeof window !== 'undefined' && ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      const recognition = new SpeechRecognition();
       recognition.continuous = true;
       recognition.interimResults = true;
       recognition.lang = selectedLanguage;
 
       recognition.onresult = (event) => {
-        let finalTranscript = "";
+        let finalTranscript = '';
         for (let i = event.resultIndex; i < event.results.length; i++) {
           if (event.results[i].isFinal) {
             finalTranscript += event.results[i][0].transcript;
           }
         }
         if (finalTranscript) {
-          setTranscript((prev) => prev + " " + finalTranscript);
+          setTranscript(prev => prev + ' ' + finalTranscript);
         }
       };
 
       recognition.onerror = (event) => {
-        console.error("Speech recognition error:", event.error);
+        console.error('Speech recognition error:', event.error);
         setIsListening(false);
+        if (event.error === 'not-allowed') {
+          setProcessingError('Microphone access denied. Please allow microphone access and try again.');
+        } else if (event.error === 'no-speech') {
+          setProcessingError('No speech detected. Please try speaking again.');
+        } else {
+          setProcessingError(`Speech recognition error: ${event.error}`);
+        }
       };
 
       recognition.onend = () => {
@@ -134,22 +181,32 @@ export default function VoiceToBenefitPage() {
       };
 
       recognitionRef.current = recognition;
+    } else {
+      setProcessingError('Speech recognition is not supported in this browser.');
     }
+
+    // Cleanup
+    return () => {
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+      }
+    };
   }, [selectedLanguage]);
 
-  // Save session to Firebase
+  // Save session to Firebase with proper error handling
   const saveSession = async (sessionData) => {
     if (!user) return;
 
     try {
       setIsSaving(true);
+      setProcessingError(null);
 
       const sessionDoc = {
         sessionId: sessionId,
         userId: user.uid,
         userEmail: user.email,
-        userName: userProfile?.name || user.displayName,
-        timestamp: new Date(),
+        userName: userProfile?.name || user.displayName || 'Unknown User',
+        timestamp: Timestamp.now(), // Use Firestore Timestamp
         language: selectedLanguage,
         transcript: transcript,
         userProfile: extractedProfile,
@@ -161,8 +218,9 @@ export default function VoiceToBenefitPage() {
           amount: benefit.amount,
         })),
         benefitCount: matchedBenefits.length,
-        location:
-          userProfile?.address?.city + ", " + userProfile?.address?.state,
+        location: userProfile?.address ? 
+          `${userProfile.address.city}, ${userProfile.address.state}` : 
+          'Not specified',
         ...sessionData,
       };
 
@@ -183,13 +241,13 @@ export default function VoiceToBenefitPage() {
 
   // Update session with benefit interaction
   const trackBenefitInteraction = async (benefitId, action) => {
-    if (!user) return;
+    if (!user || !sessionId) return;
 
     try {
       const interactionData = {
         benefitId: benefitId,
         action: action,
-        timestamp: new Date(),
+        timestamp: Timestamp.now()
       };
 
       await addDoc(collection(db, "benefit_interactions"), {
@@ -205,117 +263,190 @@ export default function VoiceToBenefitPage() {
 
   const startListening = () => {
     if (recognitionRef.current && !isListening) {
+      setProcessingError(null);
       setIsListening(true);
-      recognitionRef.current.start();
+      try {
+        recognitionRef.current.start();
+      } catch (error) {
+        console.error('Error starting recognition:', error);
+        setIsListening(false);
+        setProcessingError('Failed to start speech recognition.');
+      }
     }
   };
 
   const stopListening = () => {
     if (recognitionRef.current && isListening) {
       setIsListening(false);
-      recognitionRef.current.stop();
+      try {
+        recognitionRef.current.stop();
+      } catch (error) {
+        console.error('Error stopping recognition:', error);
+      }
     }
   };
 
   const processTranscript = async () => {
-    if (!transcript.trim()) return;
+    if (!transcript.trim()) {
+      setProcessingError('Please provide some input before processing.');
+      return;
+    }
 
     setIsProcessing(true);
+    setProcessingError(null);
 
-    // Simulate AI processing delay
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+    try {
+      // Try to use AI matching service if available
+      let aiResult = null;
+      try {
+        if (aiMatchingService && typeof aiMatchingService.matchBenefits === 'function') {
+          aiResult = await aiMatchingService.matchBenefits(transcript, userProfile);
+          setAiResults(aiResult);
+        }
+      } catch (aiError) {
+        console.warn('AI service failed, falling back to keyword matching:', aiError);
+      }
 
-    // Enhanced keyword matching with user profile context
-    const keywords = transcript.toLowerCase().split(" ");
-    const matches = benefitSchemes.filter((scheme) =>
-      scheme.eligibility.some((eligibility) =>
-        keywords.some(
-          (keyword) =>
-            keyword.includes(eligibility) || eligibility.includes(keyword)
+      // Fallback to keyword matching
+      const keywords = transcript.toLowerCase().split(" ");
+      const matches = benefitSchemes.filter((scheme) =>
+        scheme.eligibility.keywords.some((eligibility) =>
+          keywords.some(
+            (keyword) =>
+              keyword.includes(eligibility) || eligibility.includes(keyword)
+          )
         )
-      )
-    );
+      );
 
-    // Extract user profile information enhanced with stored profile
-    const profile = {
-      hasChildren: keywords.some((k) =>
-        ["बच्चे", "children", "school", "student", "बच्चा"].includes(k)
-      ),
-      isFarmer: keywords.some((k) =>
-        ["किसान", "farmer", "agriculture", "खेती", "फसल"].includes(k)
-      ),
-      needsHousing: keywords.some((k) =>
-        ["घर", "house", "home", "shelter", "मकान"].includes(k)
-      ),
-      needsHealthcare: keywords.some((k) =>
-        ["बीमार", "sick", "hospital", "treatment", "इलाज"].includes(k)
-      ),
-      isWomen: keywords.some((k) =>
-        ["महिला", "woman", "female", "औरत"].includes(k)
-      ),
-      location: userProfile?.address?.city || "Not specified",
-      state: userProfile?.address?.state || "Not specified",
-      registeredAddress: userProfile?.address
-        ? `${userProfile.address.street}, ${userProfile.address.city}, ${userProfile.address.state} - ${userProfile.address.pincode}`
-        : "Not available",
-    };
+      // Use AI results if available, otherwise use keyword matching
+      const finalMatches = aiResult?.matchedBenefits?.length > 0 ? 
+        aiResult.matchedBenefits : matches;
 
-    setExtractedProfile(profile);
-    setMatchedBenefits(matches);
-    setIsProcessing(false);
+      // Extract user profile information enhanced with stored profile
+      const profile = {
+        hasChildren: keywords.some((k) =>
+          ["बच्चे", "children", "school", "student", "बच्चा"].includes(k)
+        ),
+        isFarmer: keywords.some((k) =>
+          ["किसान", "farmer", "agriculture", "खेती", "फसल"].includes(k)
+        ),
+        needsHousing: keywords.some((k) =>
+          ["घर", "house", "home", "shelter", "मकान"].includes(k)
+        ),
+        needsHealthcare: keywords.some((k) =>
+          ["बीमार", "sick", "hospital", "treatment", "इलाज"].includes(k)
+        ),
+        isWomen: keywords.some((k) =>
+          ["महिला", "woman", "female", "औरत"].includes(k)
+        ),
+        location: userProfile?.address?.city || "Not specified",
+        state: userProfile?.address?.state || "Not specified",
+        registeredAddress: userProfile?.address
+          ? `${userProfile.address.street || ''}, ${userProfile.address.city}, ${userProfile.address.state} - ${userProfile.address.pincode}`
+          : "Not available",
+      };
 
-    // Auto-save session after processing
-    if (matches.length > 0) {
-      await saveSession({
-        searchType: "voice_search",
-        processingTime: 2000,
-        keywords: keywords.slice(0, 10),
-      });
+      setExtractedProfile(profile);
+      setMatchedBenefits(finalMatches);
+
+      // Auto-save session after successful processing
+      if (finalMatches.length > 0) {
+        await saveSession({
+          searchType: 'voice_search',
+          processingTime: 2000,
+          keywords: keywords.slice(0, 10),
+          aiUsed: !!aiResult?.success
+        });
+      }
+
+    } catch (error) {
+      console.error('Error processing transcript:', error);
+      setProcessingError('Failed to process your input. Please try again.');
+    } finally {
+      setIsProcessing(false);
     }
   };
 
   const loadPreviousSession = (session) => {
-    setTranscript(session.transcript || "");
-    setSelectedLanguage(session.language || "en-IN");
-    setExtractedProfile(session.userProfile);
-    setMatchedBenefits(session.matchedBenefits || []);
-    setSessionId(session.sessionId);
+    try {
+      setTranscript(session.transcript || "");
+      setSelectedLanguage(session.language || "en-IN");
+      setExtractedProfile(session.userProfile);
+      setMatchedBenefits(session.matchedBenefits || []);
+      setSessionId(session.sessionId);
 
-    setSaveMessage("पिछला सत्र लोड हो गया | Previous session loaded");
-    setTimeout(() => setSaveMessage(""), 3000);
+      setSaveMessage("पिछला सत्र लोड हो गया | Previous session loaded");
+      setTimeout(() => setSaveMessage(""), 3000);
+    } catch (error) {
+      console.error('Error loading previous session:', error);
+      setProcessingError('Failed to load previous session.');
+    }
   };
 
   const clearAll = () => {
     setTranscript("");
     setMatchedBenefits([]);
     setExtractedProfile(null);
+    setAiResults(null);
+    setProcessingError(null);
     const newSessionId =
       "session_" + Date.now() + "_" + Math.random().toString(36).substr(2, 5);
     setSessionId(newSessionId);
   };
 
   const speakText = (text, benefitId = null) => {
-    if ("speechSynthesis" in window) {
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = selectedLanguage;
-      window.speechSynthesis.speak(utterance);
-
-      if (benefitId) {
-        trackBenefitInteraction(benefitId, "listened");
+    if ('speechSynthesis' in window) {
+      try {
+        window.speechSynthesis.cancel(); // Stop any ongoing speech
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = selectedLanguage;
+        utterance.rate = 0.8; // Slightly slower for better comprehension
+        utterance.onerror = (error) => {
+          console.error('Speech synthesis error:', error);
+        };
+        window.speechSynthesis.speak(utterance);
+        
+        if (benefitId) {
+          trackBenefitInteraction(benefitId, 'listened');
+        }
+      } catch (error) {
+        console.error('Error with text-to-speech:', error);
       }
+    } else {
+      setProcessingError('Text-to-speech is not supported in this browser.');
     }
   };
 
   const handleLogout = async () => {
     try {
+      setIsLoading(true);
       await signOut(auth);
       router.push("/auth");
     } catch (error) {
       console.error("Error signing out:", error);
+      setProcessingError('Failed to sign out. Please try again.');
+      setIsLoading(false);
     }
   };
 
-    if (isLoading) {
+  const formatTimestamp = (timestamp) => {
+    if (!timestamp) return 'Recent session';
+    
+    try {
+      const date = timestamp instanceof Date ? timestamp : new Date(timestamp);
+      return date.toLocaleDateString('en-IN', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch (error) {
+      return 'Recent session';
+    }
+  };
+
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-green-50 flex items-center justify-center">
         <div className="text-center">
@@ -340,7 +471,7 @@ export default function VoiceToBenefitPage() {
           </div>
 
           {/* Enhanced User Menu */}
-          <div className="relative">
+          <div className="relative user-menu-container">
             <button
               onClick={() => setShowUserMenu(!showUserMenu)}
               className="flex items-center space-x-2 bg-white rounded-lg px-4 py-2 shadow-md hover:shadow-lg transition-all border border-gray-200"
@@ -401,7 +532,7 @@ export default function VoiceToBenefitPage() {
               </div>
               <div className="bg-gray-50 p-3 rounded-lg">
                 <p className="text-gray-500 mb-1">📍 Location</p>
-                <p className="font-medium">{userProfile.address?.city}, {userProfile.address?.state}</p>
+                <p className="font-medium">{userProfile.address?.city || 'Not specified'}, {userProfile.address?.state || 'Not specified'}</p>
               </div>
             </div>
           </div>
@@ -410,10 +541,68 @@ export default function VoiceToBenefitPage() {
         {/* Save Message - Enhanced */}
         {saveMessage && (
           <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg mb-4 flex items-center">
-            <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-            </svg>
+            <CheckCircle className="w-5 h-5 mr-2" />
             {saveMessage}
+          </div>
+        )}
+
+        {/* Processing Error */}
+        {processingError && (
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg mb-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <AlertCircle className="mr-2 h-5 w-5" />
+                {processingError}
+              </div>
+              <button
+                onClick={() => setProcessingError(null)}
+                className="text-red-700 hover:text-red-900"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* AI Results Summary */}
+        {aiResults && aiResults.success && (
+          <div className="bg-gradient-to-r from-purple-100 to-blue-100 rounded-lg p-6 mb-6">
+            <h3 className="text-lg font-semibold mb-3 flex items-center">
+              <Brain className="mr-2 text-purple-600" />
+              AI Analysis Results | AI विश्लेषण परिणाम
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+              <div className="flex items-center">
+                <Zap className="mr-2 h-4 w-4 text-yellow-500" />
+                <span>
+                  <strong>Confidence:</strong> {Math.round((aiResults.confidenceScore || 0) * 100)}%
+                </span>
+              </div>
+              <div className="flex items-center">
+                <CheckCircle className="mr-2 h-4 w-4 text-green-500" />
+                <span>
+                  <strong>Schemes Found:</strong> {aiResults.matchedBenefits?.length || 0}
+                </span>
+              </div>
+              <div className="flex items-center">
+                <Brain className="mr-2 h-4 w-4 text-blue-500" />
+                <span>
+                  <strong>Processing:</strong> {aiResults.metadata?.processingTime || 0}ms
+                </span>
+              </div>
+            </div>
+            {aiResults.recommendations && (
+              <div className="mt-3 p-3 bg-white rounded-lg">
+                <p className="text-sm text-gray-700">
+                  <strong>💡 AI Recommendations:</strong> {aiResults.recommendations}
+                </p>
+              </div>
+            )}
+            {aiResults.metadata?.fallbackUsed && (
+              <div className="mt-2 text-xs text-orange-600">
+                ⚠️ Fallback matching used due to AI service limitations
+              </div>
+            )}
           </div>
         )}
 
@@ -435,11 +624,7 @@ export default function VoiceToBenefitPage() {
                   <div className="flex justify-between items-start">
                     <div>
                       <p className="text-sm font-medium text-gray-900">
-                        {session.timestamp?.toDate?.()?.toLocaleDateString('en-IN', {
-                          day: 'numeric',
-                          month: 'short',
-                          year: 'numeric'
-                        }) || "Recent session"}
+                        {formatTimestamp(session.timestamp)}
                       </p>
                       <div className="flex items-center mt-2 space-x-2">
                         <span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">
@@ -449,6 +634,7 @@ export default function VoiceToBenefitPage() {
                           {session.language}
                         </span>
                       </div>
+                      <p className="text-xs text-gray-600 mt-1">{session.location || 'Location not specified'}</p>
                     </div>
                     <button
                       onClick={() => loadPreviousSession(session)}
@@ -463,7 +649,8 @@ export default function VoiceToBenefitPage() {
           </div>
         )}
 
-        {/* <div className="bg-white rounded-xl shadow-sm p-6 mb-6 border border-gray-100">
+        {/* Language Selection */}
+        <div className="bg-white rounded-xl shadow-sm p-6 mb-6 border border-gray-100">
           <h2 className="text-xl font-semibold mb-4 flex items-center text-gray-800">
             <div className="bg-yellow-100 p-2 rounded-full mr-3">
               <Volume2 className="h-5 w-5 text-yellow-600" />
@@ -486,7 +673,7 @@ export default function VoiceToBenefitPage() {
               </button>
             ))}
           </div>
-        </div> */}
+        </div>
 
         {/* Voice Input Section - Enhanced */}
         <div className="bg-white rounded-xl shadow-sm p-6 mb-6 border border-gray-100">
@@ -609,6 +796,12 @@ export default function VoiceToBenefitPage() {
                 <p className="text-sm text-gray-500 mb-1">🏥 Healthcare</p>
                 <p className="font-medium">
                   {extractedProfile.needsHealthcare ? "चाहिए | Needed" : "नहीं | No"}
+                </p>
+              </div>
+              <div className="bg-white p-3 rounded-lg border border-blue-100">
+                <p className="text-sm text-gray-500 mb-1">👩 Women</p>
+                <p className="font-medium">
+                  {extractedProfile.isWomen ? "हाँ | Yes" : "नहीं | No"}
                 </p>
               </div>
               <div className="bg-white p-3 rounded-lg border border-blue-100">
