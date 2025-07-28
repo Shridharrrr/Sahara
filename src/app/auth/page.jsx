@@ -24,6 +24,7 @@ import {
 import { doc, setDoc, getDoc } from "firebase/firestore";
 import { languages } from "@/lib/languages";
 import { translations } from "@/lib/translations/auth";
+import { useRouter } from "next/navigation";
 
 export default function AuthPage() {
   const [isLogin, setIsLogin] = useState(true);
@@ -34,6 +35,8 @@ export default function AuthPage() {
   const [usePhoneAuth, setUsePhoneAuth] = useState(false);
   const [verificationId, setVerificationId] = useState("");
   const [showOtpInput, setShowOtpInput] = useState(false);
+
+  const router = useRouter();
 
   // Form data
   const [formData, setFormData] = useState({
@@ -136,6 +139,7 @@ export default function AuthPage() {
         "खाता सफलतापूर्वक बना दिया गया! | Account created successfully!",
         "success"
       );
+      router.push("/voice-benefits");
     } catch (error) {
       showMessage(getErrorMessage(error), "error");
     } finally {
@@ -163,6 +167,7 @@ export default function AuthPage() {
         "सफलतापूर्वक लॉगिन हो गए! | Successfully logged in!",
         "success"
       );
+      router.push("/voice-benefits");
     } catch (error) {
       showMessage(getErrorMessage(error), "error");
     } finally {
@@ -215,6 +220,7 @@ export default function AuthPage() {
       }
 
       showMessage("सफलतापूर्वक सत्यापित! | Successfully verified!", "success");
+      router.push("/voice-benefits");
     } catch (error) {
       showMessage("गलत OTP | Invalid OTP", "error");
     } finally {

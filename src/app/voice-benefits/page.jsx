@@ -194,50 +194,81 @@ export default function VoiceToBenefitPage() {
   }, [selectedLanguage]);
 
   // Save session to Firebase with proper error handling
-  const saveSession = async (sessionData) => {
-    if (!user) return;
+  // Save session to Firebase with proper error handling
+const saveSession = async (sessionData) => {
+  if (!user || !sessionId) {
+    console.error('Cannot save session: missing user or sessionId');
+    return;
+  }
 
-    try {
-      setIsSaving(true);
-      setProcessingError(null);
+  try {
+    setIsSaving(true);
+    setProcessingError(null);
 
-      const sessionDoc = {
-        sessionId: sessionId,
-        userId: user.uid,
-        userEmail: user.email,
-        userName: userProfile?.name || user.displayName || 'Unknown User',
-        timestamp: Timestamp.now(), // Use Firestore Timestamp
-        language: selectedLanguage,
-        transcript: transcript,
-        userProfile: extractedProfile,
-        matchedBenefits: matchedBenefits.map((benefit) => ({
-          id: benefit.id,
-          name: benefit.name,
-          nameEn: benefit.nameEn,
-          category: benefit.category,
-          amount: benefit.amount,
-        })),
-        benefitCount: matchedBenefits.length,
-        location: userProfile?.address ? 
-          `${userProfile.address.city}, ${userProfile.address.state}` : 
-          'Not specified',
-        ...sessionData,
+    console.log('Saving session with matched benefits:', matchedBenefits);
+    console.log('Number of benefits to save:', matchedBenefits.length);
+
+    // Ensure we have valid benefit data before saving
+    const benefitsToSave = matchedBenefits.map((benefit) => {
+      // Log each benefit to debug
+      console.log('Processing benefit for save:', benefit);
+      
+      return {
+        id: benefit.id || benefit._id || `benefit_${Date.now()}`,
+        name: benefit.name || benefit.title || 'Unknown Benefit',
+        nameEn: benefit.nameEn || benefit.englishName || benefit.name || 'Unknown Benefit',
+        category: benefit.category || 'General',
+        amount: benefit.amount || benefit.benefitAmount || 'Amount not specified',
+        description: benefit.description || '',
+        // Add any other relevant fields from your benefit scheme
+        eligibility: benefit.eligibility ? {
+          ...benefit.eligibility,
+          // Ensure keywords is an array
+          keywords: Array.isArray(benefit.eligibility.keywords) ? 
+                   benefit.eligibility.keywords : []
+        } : null,
+        // Include AI matching data if available
+        matchScore: benefit.matchScore || null,
+        eligibilityStatus: benefit.eligibilityStatus || null
       };
+    });
 
-      await addDoc(collection(db, "user_sessions"), sessionDoc);
+    console.log('Benefits prepared for saving:', benefitsToSave);
 
-      setSaveMessage("सत्र सुरक्षित हो गया | Session saved successfully");
-      await loadPreviousSessions(user.uid);
+    const sessionDoc = {
+      sessionId: sessionId,
+      userId: user.uid,
+      userEmail: user.email,
+      userName: userProfile?.name || user.displayName || 'Unknown User',
+      timestamp: Timestamp.now(),
+      language: selectedLanguage,
+      transcript: transcript,
+      userProfile: extractedProfile,
+      matchedBenefits: benefitsToSave, // Use the prepared benefits array
+      benefitCount: benefitsToSave.length,
+      location: userProfile?.address ? 
+        `${userProfile.address.city}, ${userProfile.address.state}` : 
+        'Not specified',
+      ...sessionData,
+    };
 
-      setTimeout(() => setSaveMessage(""), 3000);
-    } catch (error) {
-      console.error("Error saving session:", error);
-      setSaveMessage("सत्र सुरक्षित करने में त्रुटि | Error saving session");
-      setTimeout(() => setSaveMessage(""), 3000);
-    } finally {
-      setIsSaving(false);
-    }
-  };
+    console.log('Complete session document to save:', sessionDoc);
+
+    const docRef = await addDoc(collection(db, "user_sessions"), sessionDoc);
+    console.log('Session saved successfully with ID:', docRef.id);
+
+    setSaveMessage("सत्र सुरक्षित हो गया | Session saved successfully");
+    await loadPreviousSessions(user.uid);
+
+    setTimeout(() => setSaveMessage(""), 3000);
+  } catch (error) {
+    console.error("Error saving session:", error);
+    setSaveMessage("सत्र सुरक्षित करने में त्रुटि | Error saving session");
+    setTimeout(() => setSaveMessage(""), 3000);
+  } finally {
+    setIsSaving(false);
+  }
+};
 
   // Update session with benefit interaction
   const trackBenefitInteraction = async (benefitId, action) => {
@@ -287,85 +318,118 @@ export default function VoiceToBenefitPage() {
   };
 
   const processTranscript = async () => {
-    if (!transcript.trim()) {
-      setProcessingError('Please provide some input before processing.');
-      return;
+  if (!transcript.trim()) {
+    setProcessingError('Please provide some input before processing.');
+    return;
+  }
+
+  setIsProcessing(true);
+  setProcessingError(null);
+
+  try {
+    let finalMatches = [];
+    let aiResult = null;
+
+    // Try to use AI matching service if available
+    try {
+      if (aiMatchingService && typeof aiMatchingService.matchBenefits === 'function') {
+        console.log('Attempting AI matching...');
+        aiResult = await aiMatchingService.matchBenefits(transcript, userProfile);
+        setAiResults(aiResult);
+        
+        if (aiResult?.matchedBenefits?.length > 0) {
+          finalMatches = aiResult.matchedBenefits;
+          console.log('AI matching successful:', finalMatches.length, 'benefits found');
+        }
+      }
+    } catch (aiError) {
+      console.warn('AI service failed, falling back to keyword matching:', aiError);
     }
 
-    setIsProcessing(true);
-    setProcessingError(null);
-
-    try {
-      // Try to use AI matching service if available
-      let aiResult = null;
-      try {
-        if (aiMatchingService && typeof aiMatchingService.matchBenefits === 'function') {
-          aiResult = await aiMatchingService.matchBenefits(transcript, userProfile);
-          setAiResults(aiResult);
-        }
-      } catch (aiError) {
-        console.warn('AI service failed, falling back to keyword matching:', aiError);
-      }
-
-      // Fallback to keyword matching
+    // Fallback to keyword matching if AI didn't return results
+    if (finalMatches.length === 0) {
+      console.log('Using keyword matching fallback...');
       const keywords = transcript.toLowerCase().split(" ");
-      const matches = benefitSchemes.filter((scheme) =>
-        scheme.eligibility.keywords.some((eligibility) =>
+      console.log('Keywords extracted:', keywords);
+      
+      const matches = benefitSchemes.filter((scheme) => {
+        // Check if scheme has eligibility.keywords property
+        if (!scheme.eligibility || !scheme.eligibility.keywords) {
+          console.warn('Scheme missing eligibility.keywords:', scheme.id || scheme.name);
+          return false;
+        }
+        
+        return scheme.eligibility.keywords.some((eligibility) =>
           keywords.some(
             (keyword) =>
-              keyword.includes(eligibility) || eligibility.includes(keyword)
+              keyword.includes(eligibility.toLowerCase()) || 
+              eligibility.toLowerCase().includes(keyword)
           )
-        )
-      );
-
-      // Use AI results if available, otherwise use keyword matching
-      const finalMatches = aiResult?.matchedBenefits?.length > 0 ? 
-        aiResult.matchedBenefits : matches;
-
-      // Extract user profile information enhanced with stored profile
-      const profile = {
-        hasChildren: keywords.some((k) =>
-          ["बच्चे", "children", "school", "student", "बच्चा"].includes(k)
-        ),
-        isFarmer: keywords.some((k) =>
-          ["किसान", "farmer", "agriculture", "खेती", "फसल"].includes(k)
-        ),
-        needsHousing: keywords.some((k) =>
-          ["घर", "house", "home", "shelter", "मकान"].includes(k)
-        ),
-        needsHealthcare: keywords.some((k) =>
-          ["बीमार", "sick", "hospital", "treatment", "इलाज"].includes(k)
-        ),
-        isWomen: keywords.some((k) =>
-          ["महिला", "woman", "female", "औरत"].includes(k)
-        ),
-        location: userProfile?.address?.city || "Not specified",
-        state: userProfile?.address?.state || "Not specified",
-        registeredAddress: userProfile?.address
-          ? `${userProfile.address.street || ''}, ${userProfile.address.city}, ${userProfile.address.state} - ${userProfile.address.pincode}`
-          : "Not available",
-      };
-
-      setExtractedProfile(profile);
-      setMatchedBenefits(finalMatches);
-
-      // Auto-save session after successful processing
-      if (finalMatches.length > 0) {
-        await saveSession({
-          searchType: 'voice_search',
-          processingTime: 2000,
-          keywords: keywords.slice(0, 10),
-          aiUsed: !!aiResult?.success
-        });
-      }
-
-    } catch (error) {
-      console.error('Error processing transcript:', error);
-      setProcessingError('Failed to process your input. Please try again.');
-    } finally {
-      setIsProcessing(false);
+        );
+      });
+      
+      finalMatches = matches;
+      console.log('Keyword matching found:', finalMatches.length, 'benefits');
     }
-  };
+
+    // Log the final matches for debugging
+    console.log('Final matched benefits:', finalMatches);
+
+    // Extract user profile information enhanced with stored profile
+    const profile = {
+      hasChildren: transcript.toLowerCase().includes('बच्चे') || 
+                  transcript.toLowerCase().includes('children') || 
+                  transcript.toLowerCase().includes('child') ||
+                  transcript.toLowerCase().includes('student'),
+      isFarmer: transcript.toLowerCase().includes('किसान') || 
+               transcript.toLowerCase().includes('farmer') || 
+               transcript.toLowerCase().includes('agriculture') ||
+               transcript.toLowerCase().includes('खेती'),
+      needsHousing: transcript.toLowerCase().includes('घर') || 
+                   transcript.toLowerCase().includes('house') || 
+                   transcript.toLowerCase().includes('home') ||
+                   transcript.toLowerCase().includes('मकान'),
+      needsHealthcare: transcript.toLowerCase().includes('बीमार') || 
+                      transcript.toLowerCase().includes('sick') || 
+                      transcript.toLowerCase().includes('hospital') ||
+                      transcript.toLowerCase().includes('इलाज'),
+      isWomen: transcript.toLowerCase().includes('महिला') || 
+              transcript.toLowerCase().includes('woman') || 
+              transcript.toLowerCase().includes('female') ||
+              transcript.toLowerCase().includes('औरत'),
+      location: userProfile?.address?.city || "Not specified",
+      state: userProfile?.address?.state || "Not specified",
+      registeredAddress: userProfile?.address
+        ? `${userProfile.address.street || ''}, ${userProfile.address.city}, ${userProfile.address.state} - ${userProfile.address.pincode}`
+        : "Not available",
+    };
+
+    // Set the state with the matched benefits
+    setExtractedProfile(profile);
+    setMatchedBenefits(finalMatches);
+
+    // Only auto-save if we found benefits
+    if (finalMatches.length > 0) {
+      console.log('Saving session with', finalMatches.length, 'benefits');
+      await saveSession({
+        searchType: 'voice_search',
+        processingTime: 2000,
+        keywords: transcript.toLowerCase().split(" ").slice(0, 10),
+        aiUsed: !!aiResult?.success,
+        benefitsFound: finalMatches.length
+      });
+    } else {
+      console.log('No benefits found, not saving session');
+      setProcessingError('No matching benefits found. Try using different keywords or be more specific about your needs.');
+    }
+
+  } catch (error) {
+    console.error('Error processing transcript:', error);
+    setProcessingError('Failed to process your input. Please try again.');
+  } finally {
+    setIsProcessing(false);
+  }
+};
 
   const loadPreviousSession = (session) => {
     try {
@@ -649,7 +713,7 @@ export default function VoiceToBenefitPage() {
           </div>
         )}
 
-        {/* Language Selection */}
+        {/* Language Selection
         <div className="bg-white rounded-xl shadow-sm p-6 mb-6 border border-gray-100">
           <h2 className="text-xl font-semibold mb-4 flex items-center text-gray-800">
             <div className="bg-yellow-100 p-2 rounded-full mr-3">
@@ -673,7 +737,7 @@ export default function VoiceToBenefitPage() {
               </button>
             ))}
           </div>
-        </div>
+        </div> */}
 
         {/* Voice Input Section - Enhanced */}
         <div className="bg-white rounded-xl shadow-sm p-6 mb-6 border border-gray-100">
