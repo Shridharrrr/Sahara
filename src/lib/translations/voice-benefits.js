@@ -18,6 +18,8 @@ export const translations = {
       nextStep: "अगला कदम",
       logout: "लॉगआउट",
       profile: "प्रोफाइल",
+      yes: "हाँ",
+      no: "नहीं",
     },
     "mr-IN": {
       welcome: "स्वागत आहे",
@@ -38,6 +40,8 @@ export const translations = {
       nextStep: "पुढील पाऊल",
       logout: "लॉगआउट",
       profile: "प्रोफाइल",
+      yes: "होय",
+      no: "नाही"
     },
     "en-IN": {
       welcome: "Welcome",
@@ -58,5 +62,7 @@ export const translations = {
       nextStep: "Next Step",
       logout: "Logout",
       profile: "Profile",
+      yes: "Yes",
+      no: "No"
     },
   };

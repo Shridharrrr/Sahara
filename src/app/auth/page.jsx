@@ -38,7 +38,6 @@ export default function AuthPage() {
 
   const router = useRouter();
 
-  // Form data
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -57,7 +56,6 @@ export default function AuthPage() {
 
   const t = translations[selectedLanguage];
 
-  // Initialize reCAPTCHA for phone auth
   useEffect(() => {
     if (usePhoneAuth && !window.recaptchaVerifier) {
       window.recaptchaVerifier = new RecaptchaVerifier(
@@ -98,7 +96,6 @@ export default function AuthPage() {
     setTimeout(() => setMessage(""), 5000);
   };
 
-  // Save user profile to Firestore
   const saveUserProfile = async (user) => {
     try {
       const userRef = doc(db, "users", user.uid);
@@ -117,7 +114,6 @@ export default function AuthPage() {
     }
   };
 
-  // Email/Password Registration
   const handleEmailRegister = async (e) => {
     e.preventDefault();
     setIsLoading(true);
@@ -147,7 +143,6 @@ export default function AuthPage() {
     }
   };
 
-  // Email/Password Login
   const handleEmailLogin = async (e) => {
     e.preventDefault();
     setIsLoading(true);
@@ -159,7 +154,6 @@ export default function AuthPage() {
         formData.password
       );
 
-      // Update last login and language
       const userRef = doc(db, "users", userCredential.user.uid);
       await setDoc(userRef, { lastLogin: new Date(), preferredLanguage: selectedLanguage }, { merge: true });
 
@@ -175,7 +169,6 @@ export default function AuthPage() {
     }
   };
 
-  // Phone Authentication - Send OTP
   const handlePhoneAuth = async (e) => {
     e.preventDefault();
     setIsLoading(true);
@@ -200,7 +193,6 @@ export default function AuthPage() {
     }
   };
 
-  // Verify OTP
   const handleOtpVerification = async (e) => {
     e.preventDefault();
     setIsLoading(true);
@@ -209,7 +201,6 @@ export default function AuthPage() {
       const credential = auth.PhoneAuthProvider.credential(verificationId, otp);
       const userCredential = await auth.signInWithCredential(credential);
 
-      // Check if user profile exists, if not in registration mode, create it
       const userRef = doc(db, "users", userCredential.user.uid);
       const userDoc = await getDoc(userRef);
 
@@ -247,18 +238,14 @@ export default function AuthPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-green-50 to-yellow-50 flex items-center justify-center p-4 md:p-6">
-      <div className="max-w-md w-full">
-        {/* Enhanced Header */}
+    <div className="min-h-screen bg-gradient-to-br from-blue-300 to-purple-300 flex items-center justify-center p-4 md:p-6">
+      <div className="max-w-lg w-full m-2 md:m-6">
+        
         <div className="text-center mb-8">
-          <div className="text-6xl mb-4">
-            <span className="bg-blue-600 text-white rounded-lg px-3 py-1 inline-block">🏛️</span>
-          </div>
-          <h1 className="text-3xl font-bold text-gray-800 mb-2">{t.title}</h1>
-          <p className="text-gray-600 text-lg">{t.subtitle}</p>
+          <h1 className="md:text-5xl text-4xl font-bold text-gray-800 mb-2">Welcome to Sahara</h1>
+          <p className="text-gray-600 text-lg">Your Voice, Your Rights</p>
         </div>
 
-        {/* Enhanced Language Selection */}
         <div className="bg-white rounded-xl shadow-sm p-4 mb-6 border border-gray-100">
           <div className="flex items-center mb-3">
             <div className="bg-blue-100 p-2 rounded-full mr-3">
@@ -266,12 +253,12 @@ export default function AuthPage() {
             </div>
             <span className="font-medium text-gray-800">{t.language}</span>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex gap-2">
             {languages.map((lang) => (
               <button
                 key={lang.code}
                 onClick={() => setSelectedLanguage(lang.code)}
-                className={`px-3 py-2 rounded-lg transition-all flex items-center text-sm ${
+                className={`px-3 py-2 rounded-lg transition-all w-full flex justify-center text-center items-center text-sm ${
                   selectedLanguage === lang.code
                     ? "bg-blue-600 text-white shadow-md"
                     : "bg-gray-100 text-gray-800 hover:bg-gray-200 border border-gray-200"
@@ -283,9 +270,7 @@ export default function AuthPage() {
           </div>
         </div>
 
-        {/* Main Form Container */}
         <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
-          {/* Enhanced Toggle Login/Register */}
           <div className="flex mb-6 rounded-lg overflow-hidden border border-gray-200">
             <button
               onClick={() => {
@@ -319,14 +304,13 @@ export default function AuthPage() {
             </button>
           </div>
 
-          {/* Enhanced Auth Method Toggle */}
           <div className="mb-6">
             <button
               onClick={() => {
                 setUsePhoneAuth(!usePhoneAuth);
                 setShowOtpInput(false);
               }}
-              className="w-full py-2 px-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-sm flex items-center justify-center"
+              className="w-full py-3 px-4 border text-gray-700 border-blue-500 rounded-lg hover:bg-blue-50 transition-colors text-sm flex items-center justify-center"
             >
               {usePhoneAuth ? (
                 <>
@@ -345,7 +329,6 @@ export default function AuthPage() {
             </button>
           </div>
 
-          {/* Enhanced Message Display */}
           {message && (
             <div
               className={`mb-6 p-4 rounded-lg text-sm flex items-start ${
@@ -369,7 +352,6 @@ export default function AuthPage() {
             </div>
           )}
 
-          {/* Phone Auth Form - Enhanced */}
           {usePhoneAuth ? (
             <form
               onSubmit={showOtpInput ? handleOtpVerification : handlePhoneAuth}
@@ -390,7 +372,7 @@ export default function AuthPage() {
                     name="name"
                     value={formData.name}
                     onChange={handleInputChange}
-                    className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                    className="w-full px-4 py-3 border text-gray-800 border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                     required={!isLogin}
                   />
                 </div>
@@ -414,7 +396,7 @@ export default function AuthPage() {
                     name="phone"
                     value={formData.phone}
                     onChange={handleInputChange}
-                    className="flex-1 px-4 py-3 border border-gray-200 rounded-r-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                    className="flex-1 px-4 py-3 border text-gray-800 border-gray-200 rounded-r-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                     placeholder="9876543210"
                     maxLength="10"
                     required
@@ -422,7 +404,6 @@ export default function AuthPage() {
                 </div>
               </div>
 
-              {/* Address fields for registration */}
               {!isLogin && (
                 <div className="space-y-4">
                   <div>
@@ -439,7 +420,7 @@ export default function AuthPage() {
                       name="address.street"
                       value={formData.address.street}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                      className="w-full px-4 py-3 border text-gray-800 border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                       required={!isLogin}
                     />
                   </div>
@@ -454,7 +435,7 @@ export default function AuthPage() {
                         name="address.city"
                         value={formData.address.city}
                         onChange={handleInputChange}
-                        className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                        className="w-full px-4 py-3 border text-gray-800 border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                         required={!isLogin}
                       />
                     </div>
@@ -467,7 +448,7 @@ export default function AuthPage() {
                         name="address.state"
                         value={formData.address.state}
                         onChange={handleInputChange}
-                        className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                        className="w-full px-4 py-3 border text-gray-800 border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                         required={!isLogin}
                       />
                     </div>
@@ -487,7 +468,7 @@ export default function AuthPage() {
                       name="address.pincode"
                       value={formData.address.pincode}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                      className="w-full px-4 py-3 border text-gray-800 border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                       maxLength="6"
                       required={!isLogin}
                     />
@@ -495,7 +476,6 @@ export default function AuthPage() {
                 </div>
               )}
 
-              {/* OTP Input */}
               {showOtpInput && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -505,7 +485,7 @@ export default function AuthPage() {
                     type="text"
                     value={otp}
                     onChange={(e) => setOtp(e.target.value)}
-                    className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                    className="w-full px-4 py-3 border text-gray-800 border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                     maxLength="6"
                     placeholder="123456"
                     required
@@ -532,7 +512,6 @@ export default function AuthPage() {
               </button>
             </form>
           ) : (
-            /* Email Auth Form - Enhanced */
             <form onSubmit={isLogin ? handleEmailLogin : handleEmailRegister} className="space-y-4">
               {!isLogin && (
                 <div>
@@ -549,7 +528,7 @@ export default function AuthPage() {
                     name="name"
                     value={formData.name}
                     onChange={handleInputChange}
-                    className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                    className="w-full px-4 py-3 border text-gray-800 border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                     required={!isLogin}
                   />
                 </div>
@@ -572,7 +551,7 @@ export default function AuthPage() {
                   name="email"
                   value={formData.email}
                   onChange={handleInputChange}
-                  className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                  className="w-full px-4 py-3 border border-gray-200 rounded-lg text-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                   required
                 />
               </div>
@@ -596,7 +575,7 @@ export default function AuthPage() {
                       name="phone"
                       value={formData.phone}
                       onChange={handleInputChange}
-                      className="flex-1 px-4 py-3 border border-gray-200 rounded-r-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                      className="flex-1 px-4 py-3 border text-gray-800 border-gray-200 rounded-r-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                       placeholder="9876543210"
                       maxLength="10"
                       required={!isLogin}
@@ -622,7 +601,7 @@ export default function AuthPage() {
                     name="password"
                     value={formData.password}
                     onChange={handleInputChange}
-                    className="w-full px-4 py-3 pr-12 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                    className="w-full px-4 py-3 pr-12 border text-gray-800 border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                     required
                   />
                   <button
@@ -639,7 +618,6 @@ export default function AuthPage() {
                 </div>
               </div>
 
-              {/* Address fields for registration */}
               {!isLogin && (
                 <div className="space-y-4">
                   <div>
@@ -656,7 +634,7 @@ export default function AuthPage() {
                       name="address.street"
                       value={formData.address.street}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                      className="w-full px-4 py-3 border text-gray-800 border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                       required={!isLogin}
                     />
                   </div>
@@ -671,7 +649,7 @@ export default function AuthPage() {
                         name="address.city"
                         value={formData.address.city}
                         onChange={handleInputChange}
-                        className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                        className="w-full px-4 py-3 border text-gray-800 border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                         required={!isLogin}
                       />
                     </div>
@@ -684,7 +662,7 @@ export default function AuthPage() {
                         name="address.state"
                         value={formData.address.state}
                         onChange={handleInputChange}
-                        className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                        className="w-full px-4 py-3 border text-gray-800 border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                         required={!isLogin}
                       />
                     </div>
@@ -704,7 +682,7 @@ export default function AuthPage() {
                       name="address.pincode"
                       value={formData.address.pincode}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                      className="w-full px-4 py-3 border text-gray-800 border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                       maxLength="6"
                       required={!isLogin}
                     />
@@ -732,10 +710,8 @@ export default function AuthPage() {
             </form>
           )}
 
-          {/* reCAPTCHA container (invisible) */}
           <div id="recaptcha-container"></div>
 
-          {/* Enhanced Switch Mode */}
           <div className="mt-6 text-center">
             <button
               onClick={() => {
@@ -752,10 +728,8 @@ export default function AuthPage() {
           </div>
         </div>
 
-        {/* Enhanced Footer */}
         <div className="text-center mt-8 text-sm text-gray-600">
-          <p className="font-medium">🏛️ Sahara - आपके अधिकारों का साथी</p>
-          <p className="text-gray-500">Your Rights, Our Mission</p>
+          <p className="font-medium">🏛️ Sahara - Your Rights, Our Mission</p>
         </div>
       </div>
     </div>

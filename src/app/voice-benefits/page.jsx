@@ -4,17 +4,47 @@ import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { translations } from "@/lib/translations/voice-benefits";
 import { benefitSchemes } from "@/lib/benefitSchemes";
-import { 
-  Mic, MicOff, Volume2, FileText, MapPin, Users, Heart, Save, History, 
-  LogOut, User, Settings, ChevronDown, Brain, Zap, CheckCircle, AlertCircle 
+import { languages } from "@/lib/languages";
+import { Roboto } from "next/font/google";
+import {
+  Mic,
+  MicOff,
+  Volume2,
+  FileText,
+  MapPin,
+  Users,
+  Heart,
+  Save,
+  History,
+  LogOut,
+  User,
+  Settings,
+  ChevronDown,
+  Brain,
+  Zap,
+  CheckCircle,
+  AlertCircle,
+  Trash,
 } from "lucide-react";
 import { auth, db } from "@/lib/firebase/firebase";
 import { onAuthStateChanged, signOut } from "firebase/auth";
-import { 
-  collection, addDoc, getDocs, query, where, orderBy, limit, 
-  doc, getDoc, Timestamp 
+import {
+  collection,
+  addDoc,
+  getDocs,
+  query,
+  where,
+  orderBy,
+  limit,
+  doc,
+  getDoc,
+  Timestamp,
 } from "firebase/firestore";
-import { aiMatchingService, formatMatchScore, formatEligibilityStatus } from '@/lib/aiMatchingService';
+import {
+  aiMatchingService,
+  formatMatchScore,
+  formatEligibilityStatus,
+} from "@/lib/aiMatchingService";
 
 export default function VoiceToBenefitPage() {
   const [user, setUser] = useState(null);
@@ -36,13 +66,6 @@ export default function VoiceToBenefitPage() {
   const recognitionRef = useRef(null);
   const router = useRouter();
 
-  // Language options
-  const languages = [
-    { code: 'hi-IN', name: 'हिंदी', flag: '🇮🇳' },
-    { code: 'mr-IN', name: 'मराठी', flag: '🇮🇳' },
-    { code: 'en-IN', name: 'English', flag: '🇮🇳' }
-  ];
-  
   const t = translations[selectedLanguage] || translations["en-IN"];
 
   // Authentication check
@@ -65,17 +88,17 @@ export default function VoiceToBenefitPage() {
   // Close user menu when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (!event.target.closest('.user-menu-container')) {
+      if (!event.target.closest(".user-menu-container")) {
         setShowUserMenu(false);
       }
     };
 
     if (showUserMenu) {
-      document.addEventListener('click', handleClickOutside);
+      document.addEventListener("click", handleClickOutside);
     }
 
     return () => {
-      document.removeEventListener('click', handleClickOutside);
+      document.removeEventListener("click", handleClickOutside);
     };
   }, [showUserMenu]);
 
@@ -89,15 +112,15 @@ export default function VoiceToBenefitPage() {
         // Set language based on user preference
         if (profile.preferredLanguage) {
           let langCode;
-          switch(profile.preferredLanguage) {
-            case 'hi':
-              langCode = 'hi-IN'; // Hindi - India
+          switch (profile.preferredLanguage) {
+            case "hi":
+              langCode = "hi-IN"; // Hindi - India
               break;
-            case 'mr':
-              langCode = 'mr-IN'; // Marathi - India
+            case "mr":
+              langCode = "mr-IN"; // Marathi - India
               break;
             default:
-              langCode = 'en-IN'; // English - India
+              langCode = "en-IN"; // English - India
           }
           setSelectedLanguage(langCode);
         }
@@ -129,11 +152,13 @@ export default function VoiceToBenefitPage() {
       const sessions = [];
       querySnapshot.forEach((doc) => {
         const data = doc.data();
-        sessions.push({ 
-          id: doc.id, 
+        sessions.push({
+          id: doc.id,
           ...data,
           // Handle different timestamp formats
-          timestamp: data.timestamp?.toDate ? data.timestamp.toDate() : new Date(data.timestamp)
+          timestamp: data.timestamp?.toDate
+            ? data.timestamp.toDate()
+            : new Date(data.timestamp),
         });
       });
 
@@ -145,32 +170,38 @@ export default function VoiceToBenefitPage() {
 
   // Initialize speech recognition with proper error handling
   useEffect(() => {
-    if (typeof window !== 'undefined' && ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (
+      typeof window !== "undefined" &&
+      ("webkitSpeechRecognition" in window || "SpeechRecognition" in window)
+    ) {
+      const SpeechRecognition =
+        window.SpeechRecognition || window.webkitSpeechRecognition;
       const recognition = new SpeechRecognition();
       recognition.continuous = true;
       recognition.interimResults = true;
       recognition.lang = selectedLanguage;
 
       recognition.onresult = (event) => {
-        let finalTranscript = '';
+        let finalTranscript = "";
         for (let i = event.resultIndex; i < event.results.length; i++) {
           if (event.results[i].isFinal) {
             finalTranscript += event.results[i][0].transcript;
           }
         }
         if (finalTranscript) {
-          setTranscript(prev => prev + ' ' + finalTranscript);
+          setTranscript((prev) => prev + " " + finalTranscript);
         }
       };
 
       recognition.onerror = (event) => {
-        console.error('Speech recognition error:', event.error);
+        console.error("Speech recognition error:", event.error);
         setIsListening(false);
-        if (event.error === 'not-allowed') {
-          setProcessingError('Microphone access denied. Please allow microphone access and try again.');
-        } else if (event.error === 'no-speech') {
-          setProcessingError('No speech detected. Please try speaking again.');
+        if (event.error === "not-allowed") {
+          setProcessingError(
+            "Microphone access denied. Please allow microphone access and try again."
+          );
+        } else if (event.error === "no-speech") {
+          setProcessingError("No speech detected. Please try speaking again.");
         } else {
           setProcessingError(`Speech recognition error: ${event.error}`);
         }
@@ -182,7 +213,9 @@ export default function VoiceToBenefitPage() {
 
       recognitionRef.current = recognition;
     } else {
-      setProcessingError('Speech recognition is not supported in this browser.');
+      setProcessingError(
+        "Speech recognition is not supported in this browser."
+      );
     }
 
     // Cleanup
@@ -194,81 +227,88 @@ export default function VoiceToBenefitPage() {
   }, [selectedLanguage]);
 
   // Save session to Firebase with proper error handling
-  // Save session to Firebase with proper error handling
-const saveSession = async (sessionData) => {
-  if (!user || !sessionId) {
-    console.error('Cannot save session: missing user or sessionId');
-    return;
-  }
+  const saveSession = async (sessionData) => {
+    if (!user || !sessionId) {
+      console.error("Cannot save session: missing user or sessionId");
+      return;
+    }
 
-  try {
-    setIsSaving(true);
-    setProcessingError(null);
+    try {
+      setIsSaving(true);
+      setProcessingError(null);
 
-    console.log('Saving session with matched benefits:', matchedBenefits);
-    console.log('Number of benefits to save:', matchedBenefits.length);
+      console.log("Saving session with matched benefits:", matchedBenefits);
+      console.log("Number of benefits to save:", matchedBenefits.length);
 
-    // Ensure we have valid benefit data before saving
-    const benefitsToSave = matchedBenefits.map((benefit) => {
-      // Log each benefit to debug
-      console.log('Processing benefit for save:', benefit);
-      
-      return {
-        id: benefit.id || benefit._id || `benefit_${Date.now()}`,
-        name: benefit.name || benefit.title || 'Unknown Benefit',
-        nameEn: benefit.nameEn || benefit.englishName || benefit.name || 'Unknown Benefit',
-        category: benefit.category || 'General',
-        amount: benefit.amount || benefit.benefitAmount || 'Amount not specified',
-        description: benefit.description || '',
-        // Add any other relevant fields from your benefit scheme
-        eligibility: benefit.eligibility ? {
-          ...benefit.eligibility,
-          // Ensure keywords is an array
-          keywords: Array.isArray(benefit.eligibility.keywords) ? 
-                   benefit.eligibility.keywords : []
-        } : null,
-        // Include AI matching data if available
-        matchScore: benefit.matchScore || null,
-        eligibilityStatus: benefit.eligibilityStatus || null
+      // Ensure we have valid benefit data before saving
+      const benefitsToSave = matchedBenefits.map((benefit) => {
+        // Log each benefit to debug
+        console.log("Processing benefit for save:", benefit);
+
+        return {
+          id: benefit.id || benefit._id || `benefit_${Date.now()}`,
+          name: benefit.name || benefit.title || "Unknown Benefit",
+          nameEn:
+            benefit.nameEn ||
+            benefit.englishName ||
+            benefit.name ||
+            "Unknown Benefit",
+          category: benefit.category || "General",
+          amount:
+            benefit.amount || benefit.benefitAmount || "Amount not specified",
+          description: benefit.description || "",
+          // Add any other relevant fields from your benefit scheme
+          eligibility: benefit.eligibility
+            ? {
+                ...benefit.eligibility,
+                // Ensure keywords is an array
+                keywords: Array.isArray(benefit.eligibility.keywords)
+                  ? benefit.eligibility.keywords
+                  : [],
+              }
+            : null,
+          // Include AI matching data if available
+          matchScore: benefit.matchScore || null,
+          eligibilityStatus: benefit.eligibilityStatus || null,
+        };
+      });
+
+      console.log("Benefits prepared for saving:", benefitsToSave);
+
+      const sessionDoc = {
+        sessionId: sessionId,
+        userId: user.uid,
+        userEmail: user.email,
+        userName: userProfile?.name || user.displayName || "Unknown User",
+        timestamp: Timestamp.now(),
+        language: selectedLanguage,
+        transcript: transcript,
+        userProfile: extractedProfile,
+        matchedBenefits: benefitsToSave, // Use the prepared benefits array
+        benefitCount: benefitsToSave.length,
+        location: userProfile?.address
+          ? `${userProfile.address.city}, ${userProfile.address.state}`
+          : "Not specified",
+        ...sessionData,
       };
-    });
 
-    console.log('Benefits prepared for saving:', benefitsToSave);
+      console.log("Complete session document to save:", sessionDoc);
 
-    const sessionDoc = {
-      sessionId: sessionId,
-      userId: user.uid,
-      userEmail: user.email,
-      userName: userProfile?.name || user.displayName || 'Unknown User',
-      timestamp: Timestamp.now(),
-      language: selectedLanguage,
-      transcript: transcript,
-      userProfile: extractedProfile,
-      matchedBenefits: benefitsToSave, // Use the prepared benefits array
-      benefitCount: benefitsToSave.length,
-      location: userProfile?.address ? 
-        `${userProfile.address.city}, ${userProfile.address.state}` : 
-        'Not specified',
-      ...sessionData,
-    };
+      const docRef = await addDoc(collection(db, "user_sessions"), sessionDoc);
+      console.log("Session saved successfully with ID:", docRef.id);
 
-    console.log('Complete session document to save:', sessionDoc);
+      setSaveMessage("सत्र सुरक्षित हो गया | Session saved successfully");
+      await loadPreviousSessions(user.uid);
 
-    const docRef = await addDoc(collection(db, "user_sessions"), sessionDoc);
-    console.log('Session saved successfully with ID:', docRef.id);
-
-    setSaveMessage("सत्र सुरक्षित हो गया | Session saved successfully");
-    await loadPreviousSessions(user.uid);
-
-    setTimeout(() => setSaveMessage(""), 3000);
-  } catch (error) {
-    console.error("Error saving session:", error);
-    setSaveMessage("सत्र सुरक्षित करने में त्रुटि | Error saving session");
-    setTimeout(() => setSaveMessage(""), 3000);
-  } finally {
-    setIsSaving(false);
-  }
-};
+      setTimeout(() => setSaveMessage(""), 3000);
+    } catch (error) {
+      console.error("Error saving session:", error);
+      setSaveMessage("सत्र सुरक्षित करने में त्रुटि | Error saving session");
+      setTimeout(() => setSaveMessage(""), 3000);
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   // Update session with benefit interaction
   const trackBenefitInteraction = async (benefitId, action) => {
@@ -278,7 +318,7 @@ const saveSession = async (sessionData) => {
       const interactionData = {
         benefitId: benefitId,
         action: action,
-        timestamp: Timestamp.now()
+        timestamp: Timestamp.now(),
       };
 
       await addDoc(collection(db, "benefit_interactions"), {
@@ -299,9 +339,9 @@ const saveSession = async (sessionData) => {
       try {
         recognitionRef.current.start();
       } catch (error) {
-        console.error('Error starting recognition:', error);
+        console.error("Error starting recognition:", error);
         setIsListening(false);
-        setProcessingError('Failed to start speech recognition.');
+        setProcessingError("Failed to start speech recognition.");
       }
     }
   };
@@ -312,124 +352,148 @@ const saveSession = async (sessionData) => {
       try {
         recognitionRef.current.stop();
       } catch (error) {
-        console.error('Error stopping recognition:', error);
+        console.error("Error stopping recognition:", error);
       }
     }
   };
 
   const processTranscript = async () => {
-  if (!transcript.trim()) {
-    setProcessingError('Please provide some input before processing.');
-    return;
-  }
+    if (!transcript.trim()) {
+      setProcessingError("Please provide some input before processing.");
+      return;
+    }
 
-  setIsProcessing(true);
-  setProcessingError(null);
+    setIsProcessing(true);
+    setProcessingError(null);
 
-  try {
-    let finalMatches = [];
-    let aiResult = null;
-
-    // Try to use AI matching service if available
     try {
-      if (aiMatchingService && typeof aiMatchingService.matchBenefits === 'function') {
-        console.log('Attempting AI matching...');
-        aiResult = await aiMatchingService.matchBenefits(transcript, userProfile);
-        setAiResults(aiResult);
-        
-        if (aiResult?.matchedBenefits?.length > 0) {
-          finalMatches = aiResult.matchedBenefits;
-          console.log('AI matching successful:', finalMatches.length, 'benefits found');
-        }
-      }
-    } catch (aiError) {
-      console.warn('AI service failed, falling back to keyword matching:', aiError);
-    }
+      let finalMatches = [];
+      let aiResult = null;
 
-    // Fallback to keyword matching if AI didn't return results
-    if (finalMatches.length === 0) {
-      console.log('Using keyword matching fallback...');
-      const keywords = transcript.toLowerCase().split(" ");
-      console.log('Keywords extracted:', keywords);
-      
-      const matches = benefitSchemes.filter((scheme) => {
-        // Check if scheme has eligibility.keywords property
-        if (!scheme.eligibility || !scheme.eligibility.keywords) {
-          console.warn('Scheme missing eligibility.keywords:', scheme.id || scheme.name);
-          return false;
+      // Try to use AI matching service if available
+      try {
+        if (
+          aiMatchingService &&
+          typeof aiMatchingService.matchBenefits === "function"
+        ) {
+          console.log("Attempting AI matching...");
+          aiResult = await aiMatchingService.matchBenefits(
+            transcript,
+            userProfile
+          );
+          setAiResults(aiResult);
+
+          if (aiResult?.matchedBenefits?.length > 0) {
+            finalMatches = aiResult.matchedBenefits;
+            console.log(
+              "AI matching successful:",
+              finalMatches.length,
+              "benefits found"
+            );
+          }
         }
-        
-        return scheme.eligibility.keywords.some((eligibility) =>
-          keywords.some(
-            (keyword) =>
-              keyword.includes(eligibility.toLowerCase()) || 
-              eligibility.toLowerCase().includes(keyword)
-          )
+      } catch (aiError) {
+        console.warn(
+          "AI service failed, falling back to keyword matching:",
+          aiError
         );
-      });
-      
-      finalMatches = matches;
-      console.log('Keyword matching found:', finalMatches.length, 'benefits');
+      }
+
+      // Fallback to keyword matching if AI didn't return results
+      if (finalMatches.length === 0) {
+        console.log("Using keyword matching fallback...");
+        const keywords = transcript.toLowerCase().split(" ");
+        console.log("Keywords extracted:", keywords);
+
+        const matches = benefitSchemes.filter((scheme) => {
+          // Check if scheme has eligibility.keywords property
+          if (!scheme.eligibility || !scheme.eligibility.keywords) {
+            console.warn(
+              "Scheme missing eligibility.keywords:",
+              scheme.id || scheme.name
+            );
+            return false;
+          }
+
+          return scheme.eligibility.keywords.some((eligibility) =>
+            keywords.some(
+              (keyword) =>
+                keyword.includes(eligibility.toLowerCase()) ||
+                eligibility.toLowerCase().includes(keyword)
+            )
+          );
+        });
+
+        finalMatches = matches;
+        console.log("Keyword matching found:", finalMatches.length, "benefits");
+      }
+
+      // Log the final matches for debugging
+      console.log("Final matched benefits:", finalMatches);
+
+      // Extract user profile information enhanced with stored profile
+      const profile = {
+        hasChildren:
+          transcript.toLowerCase().includes("बच्चे") ||
+          transcript.toLowerCase().includes("children") ||
+          transcript.toLowerCase().includes("child") ||
+          transcript.toLowerCase().includes("student"),
+        isFarmer:
+          transcript.toLowerCase().includes("किसान") ||
+          transcript.toLowerCase().includes("farmer") ||
+          transcript.toLowerCase().includes("agriculture") ||
+          transcript.toLowerCase().includes("खेती"),
+        needsHousing:
+          transcript.toLowerCase().includes("घर") ||
+          transcript.toLowerCase().includes("house") ||
+          transcript.toLowerCase().includes("home") ||
+          transcript.toLowerCase().includes("मकान"),
+        needsHealthcare:
+          transcript.toLowerCase().includes("बीमार") ||
+          transcript.toLowerCase().includes("sick") ||
+          transcript.toLowerCase().includes("hospital") ||
+          transcript.toLowerCase().includes("इलाज"),
+        isWomen:
+          transcript.toLowerCase().includes("महिला") ||
+          transcript.toLowerCase().includes("woman") ||
+          transcript.toLowerCase().includes("female") ||
+          transcript.toLowerCase().includes("औरत"),
+        location: userProfile?.address?.city || "Not specified",
+        state: userProfile?.address?.state || "Not specified",
+        registeredAddress: userProfile?.address
+          ? `${userProfile.address.street || ""}, ${
+              userProfile.address.city
+            }, ${userProfile.address.state} - ${userProfile.address.pincode}`
+          : "Not available",
+      };
+
+      // Set the state with the matched benefits
+      setExtractedProfile(profile);
+      setMatchedBenefits(finalMatches);
+
+      // Only auto-save if we found benefits
+      if (finalMatches.length > 0) {
+        console.log("Saving session with", finalMatches.length, "benefits");
+        await saveSession({
+          searchType: "voice_search",
+          processingTime: 2000,
+          keywords: transcript.toLowerCase().split(" ").slice(0, 10),
+          aiUsed: !!aiResult?.success,
+          benefitsFound: finalMatches.length,
+        });
+      } else {
+        console.log("No benefits found, not saving session");
+        setProcessingError(
+          "No matching benefits found. Try using different keywords or be more specific about your needs."
+        );
+      }
+    } catch (error) {
+      console.error("Error processing transcript:", error);
+      setProcessingError("Failed to process your input. Please try again.");
+    } finally {
+      setIsProcessing(false);
     }
-
-    // Log the final matches for debugging
-    console.log('Final matched benefits:', finalMatches);
-
-    // Extract user profile information enhanced with stored profile
-    const profile = {
-      hasChildren: transcript.toLowerCase().includes('बच्चे') || 
-                  transcript.toLowerCase().includes('children') || 
-                  transcript.toLowerCase().includes('child') ||
-                  transcript.toLowerCase().includes('student'),
-      isFarmer: transcript.toLowerCase().includes('किसान') || 
-               transcript.toLowerCase().includes('farmer') || 
-               transcript.toLowerCase().includes('agriculture') ||
-               transcript.toLowerCase().includes('खेती'),
-      needsHousing: transcript.toLowerCase().includes('घर') || 
-                   transcript.toLowerCase().includes('house') || 
-                   transcript.toLowerCase().includes('home') ||
-                   transcript.toLowerCase().includes('मकान'),
-      needsHealthcare: transcript.toLowerCase().includes('बीमार') || 
-                      transcript.toLowerCase().includes('sick') || 
-                      transcript.toLowerCase().includes('hospital') ||
-                      transcript.toLowerCase().includes('इलाज'),
-      isWomen: transcript.toLowerCase().includes('महिला') || 
-              transcript.toLowerCase().includes('woman') || 
-              transcript.toLowerCase().includes('female') ||
-              transcript.toLowerCase().includes('औरत'),
-      location: userProfile?.address?.city || "Not specified",
-      state: userProfile?.address?.state || "Not specified",
-      registeredAddress: userProfile?.address
-        ? `${userProfile.address.street || ''}, ${userProfile.address.city}, ${userProfile.address.state} - ${userProfile.address.pincode}`
-        : "Not available",
-    };
-
-    // Set the state with the matched benefits
-    setExtractedProfile(profile);
-    setMatchedBenefits(finalMatches);
-
-    // Only auto-save if we found benefits
-    if (finalMatches.length > 0) {
-      console.log('Saving session with', finalMatches.length, 'benefits');
-      await saveSession({
-        searchType: 'voice_search',
-        processingTime: 2000,
-        keywords: transcript.toLowerCase().split(" ").slice(0, 10),
-        aiUsed: !!aiResult?.success,
-        benefitsFound: finalMatches.length
-      });
-    } else {
-      console.log('No benefits found, not saving session');
-      setProcessingError('No matching benefits found. Try using different keywords or be more specific about your needs.');
-    }
-
-  } catch (error) {
-    console.error('Error processing transcript:', error);
-    setProcessingError('Failed to process your input. Please try again.');
-  } finally {
-    setIsProcessing(false);
-  }
-};
+  };
 
   const loadPreviousSession = (session) => {
     try {
@@ -442,8 +506,8 @@ const saveSession = async (sessionData) => {
       setSaveMessage("पिछला सत्र लोड हो गया | Previous session loaded");
       setTimeout(() => setSaveMessage(""), 3000);
     } catch (error) {
-      console.error('Error loading previous session:', error);
-      setProcessingError('Failed to load previous session.');
+      console.error("Error loading previous session:", error);
+      setProcessingError("Failed to load previous session.");
     }
   };
 
@@ -459,25 +523,25 @@ const saveSession = async (sessionData) => {
   };
 
   const speakText = (text, benefitId = null) => {
-    if ('speechSynthesis' in window) {
+    if ("speechSynthesis" in window) {
       try {
         window.speechSynthesis.cancel(); // Stop any ongoing speech
         const utterance = new SpeechSynthesisUtterance(text);
         utterance.lang = selectedLanguage;
         utterance.rate = 0.8; // Slightly slower for better comprehension
         utterance.onerror = (error) => {
-          console.error('Speech synthesis error:', error);
+          console.error("Speech synthesis error:", error);
         };
         window.speechSynthesis.speak(utterance);
-        
+
         if (benefitId) {
-          trackBenefitInteraction(benefitId, 'listened');
+          trackBenefitInteraction(benefitId, "listened");
         }
       } catch (error) {
-        console.error('Error with text-to-speech:', error);
+        console.error("Error with text-to-speech:", error);
       }
     } else {
-      setProcessingError('Text-to-speech is not supported in this browser.');
+      setProcessingError("Text-to-speech is not supported in this browser.");
     }
   };
 
@@ -488,25 +552,25 @@ const saveSession = async (sessionData) => {
       router.push("/auth");
     } catch (error) {
       console.error("Error signing out:", error);
-      setProcessingError('Failed to sign out. Please try again.');
+      setProcessingError("Failed to sign out. Please try again.");
       setIsLoading(false);
     }
   };
 
   const formatTimestamp = (timestamp) => {
-    if (!timestamp) return 'Recent session';
-    
+    if (!timestamp) return "Recent session";
+
     try {
       const date = timestamp instanceof Date ? timestamp : new Date(timestamp);
-      return date.toLocaleDateString('en-IN', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
+      return date.toLocaleDateString("en-IN", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
       });
     } catch (error) {
-      return 'Recent session';
+      return "Recent session";
     }
   };
 
@@ -522,13 +586,12 @@ const saveSession = async (sessionData) => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-green-50 p-4 md:p-6">
+    <div className="min-h-screen bg-gray-50 p-4 md:p-6">
       <div className="max-w-6xl mx-auto">
         {/* Enhanced Header */}
         <header className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
           <div className="text-center md:text-left">
             <h1 className="text-3xl md:text-4xl font-bold text-gray-800 mb-2 flex items-center justify-center md:justify-start">
-              <span className="bg-blue-600 text-white rounded-lg px-3 py-1 mr-2">🏛️</span>
               <span>Sahara - सहारा</span>
             </h1>
             <p className="text-md text-gray-600">{t.yourVoiceYourRights}</p>
@@ -546,14 +609,22 @@ const saveSession = async (sessionData) => {
               <span className="text-sm font-medium text-gray-700 hidden md:inline">
                 {userProfile?.name || user?.displayName || "User"}
               </span>
-              <ChevronDown className={`h-4 w-4 text-gray-500 transition-transform ${showUserMenu ? 'rotate-180' : ''}`} />
+              <ChevronDown
+                className={`h-4 w-4 text-gray-500 transition-transform ${
+                  showUserMenu ? "rotate-180" : ""
+                }`}
+              />
             </button>
 
             {showUserMenu && (
               <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-xl border border-gray-200 z-10 overflow-hidden">
                 <div className="p-4 border-b border-gray-200 bg-gray-50">
-                  <p className="text-sm font-medium text-gray-700">{userProfile?.name || user?.email}</p>
-                  <p className="text-xs text-gray-500 mt-1">User ID: {user?.uid?.slice(-8)}</p>
+                  <p className="text-sm font-medium text-gray-700">
+                    {userProfile?.name || user?.email}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    User ID: {user?.uid?.slice(-8)}
+                  </p>
                 </div>
                 <div className="divide-y divide-gray-200">
                   <button
@@ -577,7 +648,7 @@ const saveSession = async (sessionData) => {
         </header>
 
         {/* User Profile Card - Enhanced */}
-        {userProfile && (
+        {/* {userProfile && (
           <div className="bg-white rounded-xl p-6 mb-6 shadow-sm border border-gray-100">
             <h3 className="text-lg font-semibold mb-4 flex items-center text-gray-800">
               <div className="bg-blue-100 p-2 rounded-full mr-3">
@@ -600,7 +671,7 @@ const saveSession = async (sessionData) => {
               </div>
             </div>
           </div>
-        )}
+        )} */}
 
         {/* Save Message - Enhanced */}
         {saveMessage && (
@@ -630,35 +701,39 @@ const saveSession = async (sessionData) => {
 
         {/* AI Results Summary */}
         {aiResults && aiResults.success && (
-          <div className="bg-gradient-to-r from-purple-100 to-blue-100 rounded-lg p-6 mb-6">
+          <div className="bg-gradient-to-r from-purple-600 to-blue-500 rounded-lg p-6 mb-6">
             <h3 className="text-lg font-semibold mb-3 flex items-center">
-              <Brain className="mr-2 text-purple-600" />
-              AI Analysis Results | AI विश्लेषण परिणाम
+              <Brain className="mr-2 text-white" />
+              AI Analysis Results
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
               <div className="flex items-center">
                 <Zap className="mr-2 h-4 w-4 text-yellow-500" />
                 <span>
-                  <strong>Confidence:</strong> {Math.round((aiResults.confidenceScore || 0) * 100)}%
+                  <strong>Confidence:</strong>{" "}
+                  {Math.round((aiResults.confidenceScore || 0) * 100)}%
                 </span>
               </div>
               <div className="flex items-center">
                 <CheckCircle className="mr-2 h-4 w-4 text-green-500" />
                 <span>
-                  <strong>Schemes Found:</strong> {aiResults.matchedBenefits?.length || 0}
+                  <strong>Schemes Found:</strong>{" "}
+                  {aiResults.matchedBenefits?.length || 0}
                 </span>
               </div>
               <div className="flex items-center">
                 <Brain className="mr-2 h-4 w-4 text-blue-500" />
                 <span>
-                  <strong>Processing:</strong> {aiResults.metadata?.processingTime || 0}ms
+                  <strong>Processing:</strong>{" "}
+                  {aiResults.metadata?.processingTime || 0}ms
                 </span>
               </div>
             </div>
             {aiResults.recommendations && (
-              <div className="mt-3 p-3 bg-white rounded-lg">
-                <p className="text-sm text-gray-700">
-                  <strong>💡 AI Recommendations:</strong> {aiResults.recommendations}
+              <div className="mt-3 px-5 py-4 bg-white rounded-lg">
+                <p className="text-base text-gray-700">
+                  <strong>AI Recommendations💡:</strong>{" "}
+                  {aiResults.recommendations}
                 </p>
               </div>
             )}
@@ -669,75 +744,6 @@ const saveSession = async (sessionData) => {
             )}
           </div>
         )}
-
-        {/* Previous Sessions - Enhanced */}
-        {previousSessions.length > 0 && (
-          <div className="bg-white rounded-xl shadow-sm p-6 mb-6 border border-gray-100">
-            <h2 className="text-xl font-semibold mb-4 flex items-center text-gray-800">
-              <div className="bg-purple-100 p-2 rounded-full mr-3">
-                <History className="h-5 w-5 text-purple-600" />
-              </div>
-              {t.previousSessions}
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {previousSessions.map((session) => (
-                <div
-                  key={session.id}
-                  className="border rounded-lg p-4 hover:shadow-md transition-all bg-gray-50 hover:bg-white"
-                >
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <p className="text-sm font-medium text-gray-900">
-                        {formatTimestamp(session.timestamp)}
-                      </p>
-                      <div className="flex items-center mt-2 space-x-2">
-                        <span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">
-                          {session.benefitCount || 0} benefits
-                        </span>
-                        <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">
-                          {session.language}
-                        </span>
-                      </div>
-                      <p className="text-xs text-gray-600 mt-1">{session.location || 'Location not specified'}</p>
-                    </div>
-                    <button
-                      onClick={() => loadPreviousSession(session)}
-                      className="px-3 py-1 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                    >
-                      Load
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Language Selection
-        <div className="bg-white rounded-xl shadow-sm p-6 mb-6 border border-gray-100">
-          <h2 className="text-xl font-semibold mb-4 flex items-center text-gray-800">
-            <div className="bg-yellow-100 p-2 rounded-full mr-3">
-              <Volume2 className="h-5 w-5 text-yellow-600" />
-            </div>
-            {t.chooseLanguage}
-          </h2>
-          <div className="flex flex-wrap gap-3">
-            {languages.map((lang) => (
-              <button
-                key={lang.code}
-                onClick={() => setSelectedLanguage(lang.code)}
-                className={`px-4 py-2 rounded-lg transition-all flex items-center ${
-                  selectedLanguage === lang.code
-                    ? "bg-blue-600 text-white shadow-md"
-                    : "bg-gray-100 text-gray-800 hover:bg-gray-200 border border-gray-200"
-                }`}
-              >
-                <span className="mr-2">{lang.flag}</span>
-                {lang.name}
-              </button>
-            ))}
-          </div>
-        </div> */}
 
         {/* Voice Input Section - Enhanced */}
         <div className="bg-white rounded-xl shadow-sm p-6 mb-6 border border-gray-100">
@@ -794,9 +800,25 @@ const saveSession = async (sessionData) => {
             >
               {isProcessing ? (
                 <>
-                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  <svg
+                    className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    ></circle>
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    ></path>
                   </svg>
                   {t.processing}
                 </>
@@ -821,79 +843,25 @@ const saveSession = async (sessionData) => {
             </button>
             <button
               onClick={clearAll}
-              className="px-6 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              className="px-6 py-3 border text-black flex items-center border-gray-600 rounded-lg hover:bg-gray-50 transition-colors"
             >
+              <Trash className="h-5 w-5 mr-2" />
               {t.clear}
             </button>
           </div>
         </div>
 
-        {/* User Profile Summary - Enhanced */}
-        {extractedProfile && (
-          <div className="bg-blue-50 rounded-xl p-6 mb-6 border border-blue-100">
-            <h3 className="text-lg font-semibold mb-4 flex items-center text-blue-800">
-              <div className="bg-blue-100 p-2 rounded-full mr-3">
-                <User className="h-5 w-5 text-blue-600" />
-              </div>
-              {t.yourProfile}
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              <div className="bg-white p-3 rounded-lg border border-blue-100">
-                <p className="text-sm text-gray-500 mb-1">👨‍👩‍👧‍👦 Children</p>
-                <p className="font-medium">
-                  {extractedProfile.hasChildren ? "हाँ | Yes" : "नहीं | No"}
-                </p>
-              </div>
-              <div className="bg-white p-3 rounded-lg border border-blue-100">
-                <p className="text-sm text-gray-500 mb-1">🌾 Farmer</p>
-                <p className="font-medium">
-                  {extractedProfile.isFarmer ? "हाँ | Yes" : "नहीं | No"}
-                </p>
-              </div>
-              <div className="bg-white p-3 rounded-lg border border-blue-100">
-                <p className="text-sm text-gray-500 mb-1">🏠 Housing</p>
-                <p className="font-medium">
-                  {extractedProfile.needsHousing ? "चाहिए | Needed" : "नहीं | No"}
-                </p>
-              </div>
-              <div className="bg-white p-3 rounded-lg border border-blue-100">
-                <p className="text-sm text-gray-500 mb-1">🏥 Healthcare</p>
-                <p className="font-medium">
-                  {extractedProfile.needsHealthcare ? "चाहिए | Needed" : "नहीं | No"}
-                </p>
-              </div>
-              <div className="bg-white p-3 rounded-lg border border-blue-100">
-                <p className="text-sm text-gray-500 mb-1">👩 Women</p>
-                <p className="font-medium">
-                  {extractedProfile.isWomen ? "हाँ | Yes" : "नहीं | No"}
-                </p>
-              </div>
-              <div className="bg-white p-3 rounded-lg border border-blue-100">
-                <p className="text-sm text-gray-500 mb-1">📍 Location</p>
-                <p className="font-medium">{extractedProfile.location}</p>
-              </div>
-              <div className="bg-white p-3 rounded-lg border border-blue-100">
-                <p className="text-sm text-gray-500 mb-1">📋 State</p>
-                <p className="font-medium">{extractedProfile.state}</p>
-              </div>
-            </div>
-            {extractedProfile.registeredAddress !== "Not available" && (
-              <div className="mt-4 pt-4 border-t border-blue-200">
-                <p className="text-sm text-gray-500 mb-1">📝 Registered Address</p>
-                <p className="font-medium">{extractedProfile.registeredAddress}</p>
-              </div>
-            )}
-          </div>
-        )}
-
         {/* Matched Benefits - Enhanced */}
         {matchedBenefits.length > 0 && (
-          <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+          <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 mb-6">
             <h3 className="text-xl font-semibold mb-6 flex items-center text-gray-800">
               <div className="bg-red-100 p-2 rounded-full mr-3">
                 <Heart className="h-5 w-5 text-red-600" />
               </div>
-              {t.benefitsForYou} <span className="ml-2 bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm">{matchedBenefits.length}</span>
+              {t.benefitsForYou}{" "}
+              <span className="ml-2 bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm">
+                {matchedBenefits.length}
+              </span>
             </h3>
 
             <div className="grid gap-6">
@@ -911,14 +879,20 @@ const saveSession = async (sessionData) => {
                     <div className="flex-1">
                       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 mb-3">
                         <div>
-                          <h4 className="font-semibold text-lg text-gray-900">{benefit.name}</h4>
-                          <p className="text-sm text-gray-600">{benefit.nameEn}</p>
+                          <h4 className="font-semibold text-lg text-gray-900">
+                            {benefit.name}
+                          </h4>
+                          <p className="text-sm text-gray-600">
+                            {benefit.nameEn}
+                          </p>
                         </div>
                         <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium self-start md:self-center">
                           💰 {benefit.amount}
                         </span>
                       </div>
-                      <p className="text-gray-700 mb-4">{benefit.description}</p>
+                      <p className="text-gray-700 mb-4">
+                        {benefit.description}
+                      </p>
                       <div className="flex flex-wrap gap-2 mb-4">
                         <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs">
                           📋 {benefit.level}
@@ -927,7 +901,10 @@ const saveSession = async (sessionData) => {
                           🏇 {benefit.category}
                         </span>
                         {benefit.tags?.map((tag, index) => (
-                          <span key={index} className="bg-gray-100 text-gray-800 px-2 py-1 rounded-full text-xs">
+                          <span
+                            key={index}
+                            className="bg-gray-100 text-gray-800 px-2 py-1 rounded-full text-xs"
+                          >
                             {tag}
                           </span>
                         ))}
@@ -960,32 +937,149 @@ const saveSession = async (sessionData) => {
                 </div>
               ))}
             </div>
+          </div>
+        )}
 
-            <div className="mt-8 p-5 bg-yellow-50 rounded-lg border border-yellow-200">
-              <div className="flex">
-                <div className="flex-shrink-0">
-                  <svg className="h-5 w-5 text-yellow-600" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                  </svg>
-                </div>
-                <div className="ml-3">
-                  <h3 className="text-sm font-medium text-yellow-800">{t.nextStep}</h3>
-                  <div className="mt-2 text-sm text-yellow-700">
-                    <p>
-                      इन योजनाओं के लिए आवेदन करने हेतु हमारे "कागज़ी कार्य सहायक" का उपयोग करें।
-                      <br />
-                      Use our "Paperwork Assistant" to apply for these schemes.
-                    </p>
+        {/* Previous Sessions - Enhanced */}
+        {previousSessions.length > 0 && (
+          <div className="bg-white rounded-xl shadow-sm p-6 mb-6 border border-gray-100">
+            <h2 className="text-xl font-semibold mb-4 flex items-center text-gray-800">
+              <div className="bg-purple-100 p-2 rounded-full mr-3">
+                <History className="h-5 w-5 text-purple-600" />
+              </div>
+              {t.previousSessions}
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {previousSessions.map((session) => (
+                <div
+                  key={session.id}
+                  className="border rounded-lg p-4 hover:shadow-md transition-all bg-gray-50 hover:bg-white"
+                >
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">
+                        {formatTimestamp(session.timestamp)}
+                      </p>
+                      <div className="flex items-center mt-2 space-x-2">
+                        <span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">
+                          {session.benefitCount || 0} benefits
+                        </span>
+                        <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">
+                          {session.language}
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-600 mt-1">
+                        {session.location || "Location not specified"}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => loadPreviousSession(session)}
+                      className="px-3 py-1 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                    >
+                      Load
+                    </button>
                   </div>
                 </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Language Selection
+        <div className="bg-white rounded-xl shadow-sm p-6 mb-6 border border-gray-100">
+          <h2 className="text-xl font-semibold mb-4 flex items-center text-gray-800">
+            <div className="bg-yellow-100 p-2 rounded-full mr-3">
+              <Volume2 className="h-5 w-5 text-yellow-600" />
+            </div>
+            {t.chooseLanguage}
+          </h2>
+          <div className="flex flex-wrap gap-3">
+            {languages.map((lang) => (
+              <button
+                key={lang.code}
+                onClick={() => setSelectedLanguage(lang.code)}
+                className={`px-4 py-2 rounded-lg transition-all flex items-center ${
+                  selectedLanguage === lang.code
+                    ? "bg-blue-600 text-white shadow-md"
+                    : "bg-gray-100 text-gray-800 hover:bg-gray-200 border border-gray-200"
+                }`}
+              >
+                <span className="mr-2">{lang.flag}</span>
+                {lang.name}
+              </button>
+            ))}
+          </div>
+        </div> */}
+
+        {/* User Profile Summary - Enhanced */}
+        {extractedProfile && (
+          <div className="bg-blue-500 rounded-xl p-6 mb-6 border border-blue-100">
+            <h3 className="text-xl font-semibold mb-4 flex items-center text-black">
+              <div className="bg-blue-100 p-2 rounded-full mr-3">
+                <User className="h-5 w-5 text-black" />
+              </div>
+              {t.yourProfile}
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="bg-white p-3 rounded-lg border border-blue-100">
+                <p className="text-sm text-gray-500 mb-1">👨‍👩‍👧‍👦 Children</p>
+                <p className="font-sm text-gray-800">
+                  {extractedProfile.hasChildren ? t.yes : t.no}
+                </p>
+              </div>
+              <div className="bg-white p-3 rounded-lg border border-blue-100">
+                <p className="text-sm text-gray-500 mb-1">🌾 Farmer</p>
+                <p className="font-sm text-gray-800">
+                  {extractedProfile.isFarmer ? t.yes : t.no}
+                </p>
+              </div>
+              <div className="bg-white p-3 rounded-lg border border-blue-100">
+                <p className="text-sm text-gray-500 mb-1">🏠 Need Housing?</p>
+                <p className="font-sm text-gray-800">
+                  {extractedProfile.needsHousing
+                    ? t.yes : t.no}
+                </p>
+              </div>
+              <div className="bg-white p-3 rounded-lg border border-blue-100">
+                <p className="text-sm text-gray-500 mb-1">🏥 Need Healthcare?</p>
+                <p className="font-sm text-gray-800">
+                  {extractedProfile.needsHealthcare
+                    ? t.yes : t.no}
+                </p>
+              </div>
+              <div className="bg-white p-3 rounded-lg border border-blue-100">
+                <p className="text-sm text-gray-500 mb-1">👩 Women</p>
+                <p className="font-sm text-gray-800">
+                  {extractedProfile.isWomen ? t.yes : t.no}
+                </p>
+              </div>
+              <div className="bg-white p-3 rounded-lg border border-blue-100">
+                <p className="text-sm text-gray-500 mb-1">📍 Location</p>
+                <p className="font-sm text-gray-800">{extractedProfile.location}</p>
+              </div>
+              <div className="bg-white p-3 rounded-lg border border-blue-100">
+                <p className="text-sm text-gray-500 mb-1">📋 State</p>
+                <p className="font-sm text-gray-800">{extractedProfile.state}</p>
               </div>
             </div>
+            {extractedProfile.registeredAddress !== "Not available" && (
+              <div className="mt-4 pt-4 border-t border-blue-200">
+                <p className="text-base text-gray-800 mb-1 font-semibold">
+                  📝 Registered Address{" "}
+                </p>
+                <p className="font-medium">
+                  {extractedProfile.registeredAddress}
+                </p>
+              </div>
+            )}
           </div>
         )}
 
         {/* Enhanced Instructions */}
         <div className="mt-8 bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-          <h3 className="font-semibold mb-4 text-lg text-gray-800">कैसे उपयोग करें | How to Use</h3>
+          <h3 className="font-semibold mb-4 text-lg text-gray-800">
+            कैसे उपयोग करें | How to Use
+          </h3>
           <ol className="space-y-3">
             {[
               "अपनी भाषा चुनें | Choose your language",
@@ -993,7 +1087,7 @@ const saveSession = async (sessionData) => {
               'उदाहरण: "मैं एक किसान हूँ, मेरे दो बच्चे हैं, मुझे घर चाहिए" | Example: "I am a farmer with two children, I need a house"',
               '"योजनाएं खोजें" बटन दबाएं | Press "Find Benefits" button',
               "अपने लिए उपलब्ध योजनाएं देखें | View available schemes for you",
-              "सत्र सुरक्षित करें भविष्य में उपयोग के लिए | Save session for future reference"
+              "सत्र सुरक्षित करें भविष्य में उपयोग के लिए | Save session for future reference",
             ].map((item, index) => (
               <li key={index} className="flex items-start">
                 <span className="flex-shrink-0 bg-blue-100 text-blue-800 rounded-full h-6 w-6 flex items-center justify-center mr-3 text-sm font-medium">
@@ -1007,12 +1101,22 @@ const saveSession = async (sessionData) => {
           <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-100">
             <div className="flex">
               <div className="flex-shrink-0">
-                <svg className="h-5 w-5 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+                <svg
+                  className="h-5 w-5 text-blue-600"
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z"
+                    clipRule="evenodd"
+                  />
                 </svg>
               </div>
               <div className="ml-3">
-                <h3 className="text-sm font-medium text-blue-800">🔒 सुरक्षा | Security</h3>
+                <h3 className="text-sm font-medium text-blue-800">
+                  🔒 सुरक्षा | Security
+                </h3>
                 <div className="mt-2 text-sm text-blue-700">
                   <p>
                     आपका डेटा सुरक्षित है और केवल आप ही इसे देख सकते हैं।
@@ -1028,9 +1132,15 @@ const saveSession = async (sessionData) => {
         {/* Enhanced Footer */}
         <footer className="mt-12 pt-6 border-t border-gray-200">
           <div className="text-center text-sm text-gray-600 space-y-2">
-            <p className="font-medium">🏛️ Sahara - आपके अधिकारों का साथी | Your Rights Companion</p>
-            <p className="text-xs">Logged in as: {userProfile?.name || user?.email}</p>
-            <p className="text-xs opacity-70">Session: {sessionId?.slice(-8)}</p>
+            <p className="font-medium">
+              🏛️ Sahara - आपके अधिकारों का साथी | Your Rights Companion
+            </p>
+            <p className="text-xs">
+              Logged in as: {userProfile?.name || user?.email}
+            </p>
+            <p className="text-xs opacity-70">
+              Session: {sessionId?.slice(-8)}
+            </p>
           </div>
         </footer>
       </div>
