@@ -713,6 +713,7 @@ export default function AuthPage() {
           <div id="recaptcha-container"></div>
 
           <div className="mt-6 text-center">
+            <span className="text-gray-700 text-sm font-medium">{isLogin ? t.switchToRegister : t.switchToLogin}&nbsp;</span>
             <button
               onClick={() => {
                 setIsLogin(!isLogin);
@@ -720,10 +721,9 @@ export default function AuthPage() {
                 setShowOtpInput(false);
                 setMessage("");
               }}
-              className="text-blue-600 hover:text-blue-700 text-sm font-medium flex items-center justify-center mx-auto"
+              className="text-blue-600 hover:text-blue-700 text-sm font-medium  mx-auto"
             >
-              {isLogin ? t.switchToRegister : t.switchToLogin}
-              <ChevronDown className="h-4 w-4 ml-1 transform rotate-90" />
+              {isLogin ? t.registerhere : t.loginhere}
             </button>
           </div>
         </div>
