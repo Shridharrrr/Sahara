@@ -4,15 +4,11 @@ import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { translations } from "@/lib/translations/voice-benefits";
 import { benefitSchemes } from "@/lib/benefitSchemes";
-import { languages } from "@/lib/languages";
-import { Roboto } from "next/font/google";
 import {
   Mic,
   MicOff,
   Volume2,
   FileText,
-  MapPin,
-  Users,
   Heart,
   Save,
   History,
@@ -40,11 +36,7 @@ import {
   getDoc,
   Timestamp,
 } from "firebase/firestore";
-import {
-  aiMatchingService,
-  formatMatchScore,
-  formatEligibilityStatus,
-} from "@/lib/aiMatchingService";
+import { aiMatchingService } from "@/lib/aiMatchingService";
 
 export default function VoiceToBenefitPage() {
   const [user, setUser] = useState(null);
@@ -393,39 +385,7 @@ export default function VoiceToBenefitPage() {
           }
         }
       } catch (aiError) {
-        console.warn(
-          "AI service failed, falling back to keyword matching:",
-          aiError
-        );
-      }
-
-      // Fallback to keyword matching if AI didn't return results
-      if (finalMatches.length === 0) {
-        console.log("Using keyword matching fallback...");
-        const keywords = transcript.toLowerCase().split(" ");
-        console.log("Keywords extracted:", keywords);
-
-        const matches = benefitSchemes.filter((scheme) => {
-          // Check if scheme has eligibility.keywords property
-          if (!scheme.eligibility || !scheme.eligibility.keywords) {
-            console.warn(
-              "Scheme missing eligibility.keywords:",
-              scheme.id || scheme.name
-            );
-            return false;
-          }
-
-          return scheme.eligibility.keywords.some((eligibility) =>
-            keywords.some(
-              (keyword) =>
-                keyword.includes(eligibility.toLowerCase()) ||
-                eligibility.toLowerCase().includes(keyword)
-            )
-          );
-        });
-
-        finalMatches = matches;
-        console.log("Keyword matching found:", finalMatches.length, "benefits");
+        console.warn("AI service failed", aiError);
       }
 
       // Log the final matches for debugging
@@ -576,10 +536,13 @@ export default function VoiceToBenefitPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-green-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-blue-500 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading... लोड हो रहा है...</p>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center p-8">
+          <div className="relative inline-block">
+            {/* Spinner with smooth gradient effect */}
+            <div className="animate-spin rounded-full h-16 w-16 border-4 border-blue-100 border-t-blue-500 mx-auto mb-4"></div>
+          </div>
+
         </div>
       </div>
     );
@@ -588,22 +551,23 @@ export default function VoiceToBenefitPage() {
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-6">
       <div className="max-w-6xl mx-auto">
-        {/* Enhanced Header */}
-        <header className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
-          <div className="text-center md:text-left">
+        {/*Header */}
+        <header className="flex flex-row justify-between items-center px-6 pt-6 mb-8 gap-4">
+          <div className="text-left">
             <h1 className="text-3xl md:text-4xl font-bold text-gray-800 mb-2 flex items-center justify-center md:justify-start">
-              <span>Sahara - सहारा</span>
+              <span>Sahara - सहारा </span>
+              <span className="text-sm ml-3 text-indigo-500">BETA</span>
             </h1>
             <p className="text-md text-gray-600">{t.yourVoiceYourRights}</p>
           </div>
 
-          {/* Enhanced User Menu */}
-          <div className="relative user-menu-container">
+          {/*User Menu */}
+          <div className="relative user-menu-container ">
             <button
               onClick={() => setShowUserMenu(!showUserMenu)}
-              className="flex items-center space-x-2 bg-white rounded-lg px-4 py-2 shadow-md hover:shadow-lg transition-all border border-gray-200"
+              className="flex bg-blue-100 items-center space-x-2  rounded-lg px-4 py-2 shadow-md hover:shadow-lg transition-all"
             >
-              <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
+              <div className="h-8 w-8 rounded-full bg-white flex items-center justify-center text-blue-600">
                 <User className="h-5 w-5" />
               </div>
               <span className="text-sm font-medium text-gray-700 hidden md:inline">
@@ -628,13 +592,6 @@ export default function VoiceToBenefitPage() {
                 </div>
                 <div className="divide-y divide-gray-200">
                   <button
-                    onClick={() => setShowUserMenu(false)}
-                    className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 flex items-center"
-                  >
-                    <Settings className="h-4 w-4 mr-3 text-gray-500" />
-                    {t.profile}
-                  </button>
-                  <button
                     onClick={handleLogout}
                     className="w-full text-left px-4 py-3 text-sm text-red-600 hover:bg-red-50 flex items-center"
                   >
@@ -646,32 +603,6 @@ export default function VoiceToBenefitPage() {
             )}
           </div>
         </header>
-
-        {/* User Profile Card - Enhanced */}
-        {/* {userProfile && (
-          <div className="bg-white rounded-xl p-6 mb-6 shadow-sm border border-gray-100">
-            <h3 className="text-lg font-semibold mb-4 flex items-center text-gray-800">
-              <div className="bg-blue-100 p-2 rounded-full mr-3">
-                <Users className="h-5 w-5 text-blue-600" />
-              </div>
-              {t.welcome}, {userProfile.name}! 👋
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-              <div className="bg-gray-50 p-3 rounded-lg">
-                <p className="text-gray-500 mb-1">📧 Email</p>
-                <p className="font-medium">{user.email}</p>
-              </div>
-              <div className="bg-gray-50 p-3 rounded-lg">
-                <p className="text-gray-500 mb-1">📱 Phone</p>
-                <p className="font-medium">{userProfile.phone || "Not provided"}</p>
-              </div>
-              <div className="bg-gray-50 p-3 rounded-lg">
-                <p className="text-gray-500 mb-1">📍 Location</p>
-                <p className="font-medium">{userProfile.address?.city || 'Not specified'}, {userProfile.address?.state || 'Not specified'}</p>
-              </div>
-            </div>
-          </div>
-        )} */}
 
         {/* Save Message - Enhanced */}
         {saveMessage && (
@@ -745,7 +676,7 @@ export default function VoiceToBenefitPage() {
           </div>
         )}
 
-        {/* Voice Input Section - Enhanced */}
+        {/* Voice Input Section*/}
         <div className="bg-white rounded-xl shadow-sm p-6 mb-6 border border-gray-100">
           <h2 className="text-xl font-semibold mb-4 flex items-center text-gray-800">
             <div className="bg-red-100 p-2 rounded-full mr-3">
@@ -851,24 +782,23 @@ export default function VoiceToBenefitPage() {
           </div>
         </div>
 
-        {/* Matched Benefits - Enhanced */}
+        {/* Matched Benefits*/}
         {matchedBenefits.length > 0 && (
-          <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 mb-6">
+          <div className="bg-indigo-300 rounded-xl shadow-lg p-6 mb-6">
             <h3 className="text-xl font-semibold mb-6 flex items-center text-gray-800">
-              <div className="bg-red-100 p-2 rounded-full mr-3">
-                <Heart className="h-5 w-5 text-red-600" />
+              <div className="bg-red-500 p-3 rounded-full mr-3">
+                <Heart className="h-5 w-5 text-white" />
               </div>
               {t.benefitsForYou}{" "}
-              <span className="ml-2 bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm">
+              <span className="ml-2 bg-blue-50 text-blue-600 font-semibold px-3 py-1 rounded-full text-sm shadow-sm border border-blue-300">
                 {matchedBenefits.length}
               </span>
             </h3>
-
             <div className="grid gap-6">
               {matchedBenefits.map((benefit) => (
                 <div
                   key={benefit.id}
-                  className="border rounded-xl p-5 hover:shadow-md transition-shadow bg-gradient-to-r from-gray-50 to-white"
+                  className="border rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow bg-gray-50"
                 >
                   <div className="flex flex-col md:flex-row gap-5">
                     <div className="flex-shrink-0">
@@ -940,7 +870,75 @@ export default function VoiceToBenefitPage() {
           </div>
         )}
 
-        {/* Previous Sessions - Enhanced */}
+        {/* User Profile Summary*/}
+        {extractedProfile && (
+          <div className="bg-blue-400 rounded-xl p-6 mb-6 border border-blue-100">
+            <h3 className="text-xl font-semibold mb-4 flex items-center text-black">
+              <div className="bg-blue-100 p-2 rounded-full mr-3">
+                <User className="h-5 w-5 text-black" />
+              </div>
+              {t.yourProfile}
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="bg-white p-3 rounded-lg border border-blue-100">
+                <p className="text-sm text-gray-500 mb-1">👨‍👩‍👧‍👦 Children</p>
+                <p className="font-sm text-gray-800">
+                  {extractedProfile.hasChildren ? t.yes : t.no}
+                </p>
+              </div>
+              <div className="bg-white p-3 rounded-lg border border-blue-100">
+                <p className="text-sm text-gray-500 mb-1">🌾 Farmer</p>
+                <p className="font-sm text-gray-800">
+                  {extractedProfile.isFarmer ? t.yes : t.no}
+                </p>
+              </div>
+              <div className="bg-white p-3 rounded-lg border border-blue-100">
+                <p className="text-sm text-gray-500 mb-1">🏠 Need Housing?</p>
+                <p className="font-sm text-gray-800">
+                  {extractedProfile.needsHousing ? t.yes : t.no}
+                </p>
+              </div>
+              <div className="bg-white p-3 rounded-lg border border-blue-100">
+                <p className="text-sm text-gray-500 mb-1">
+                  🏥 Need Healthcare?
+                </p>
+                <p className="font-sm text-gray-800">
+                  {extractedProfile.needsHealthcare ? t.yes : t.no}
+                </p>
+              </div>
+              <div className="bg-white p-3 rounded-lg border border-blue-100">
+                <p className="text-sm text-gray-500 mb-1">👩 Women</p>
+                <p className="font-sm text-gray-800">
+                  {extractedProfile.isWomen ? t.yes : t.no}
+                </p>
+              </div>
+              <div className="bg-white p-3 rounded-lg border border-blue-100">
+                <p className="text-sm text-gray-500 mb-1">📍 Location</p>
+                <p className="font-sm text-gray-800">
+                  {extractedProfile.location}
+                </p>
+              </div>
+              <div className="bg-white p-3 rounded-lg border border-blue-100">
+                <p className="text-sm text-gray-500 mb-1">📋 State</p>
+                <p className="font-sm text-gray-800">
+                  {extractedProfile.state}
+                </p>
+              </div>
+            </div>
+            {extractedProfile.registeredAddress !== "Not available" && (
+              <div className="mt-4 pt-4 border-t border-blue-200">
+                <p className="text-base text-gray-800 mb-1 font-semibold">
+                  📝 Registered Address{" "}
+                </p>
+                <p className="font-medium">
+                  {extractedProfile.registeredAddress}
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Previous Sessions*/}
         {previousSessions.length > 0 && (
           <div className="bg-white rounded-xl shadow-sm p-6 mb-6 border border-gray-100">
             <h2 className="text-xl font-semibold mb-4 flex items-center text-gray-800">
@@ -985,97 +983,7 @@ export default function VoiceToBenefitPage() {
           </div>
         )}
 
-        {/* Language Selection
-        <div className="bg-white rounded-xl shadow-sm p-6 mb-6 border border-gray-100">
-          <h2 className="text-xl font-semibold mb-4 flex items-center text-gray-800">
-            <div className="bg-yellow-100 p-2 rounded-full mr-3">
-              <Volume2 className="h-5 w-5 text-yellow-600" />
-            </div>
-            {t.chooseLanguage}
-          </h2>
-          <div className="flex flex-wrap gap-3">
-            {languages.map((lang) => (
-              <button
-                key={lang.code}
-                onClick={() => setSelectedLanguage(lang.code)}
-                className={`px-4 py-2 rounded-lg transition-all flex items-center ${
-                  selectedLanguage === lang.code
-                    ? "bg-blue-600 text-white shadow-md"
-                    : "bg-gray-100 text-gray-800 hover:bg-gray-200 border border-gray-200"
-                }`}
-              >
-                <span className="mr-2">{lang.flag}</span>
-                {lang.name}
-              </button>
-            ))}
-          </div>
-        </div> */}
-
-        {/* User Profile Summary - Enhanced */}
-        {extractedProfile && (
-          <div className="bg-blue-500 rounded-xl p-6 mb-6 border border-blue-100">
-            <h3 className="text-xl font-semibold mb-4 flex items-center text-black">
-              <div className="bg-blue-100 p-2 rounded-full mr-3">
-                <User className="h-5 w-5 text-black" />
-              </div>
-              {t.yourProfile}
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              <div className="bg-white p-3 rounded-lg border border-blue-100">
-                <p className="text-sm text-gray-500 mb-1">👨‍👩‍👧‍👦 Children</p>
-                <p className="font-sm text-gray-800">
-                  {extractedProfile.hasChildren ? t.yes : t.no}
-                </p>
-              </div>
-              <div className="bg-white p-3 rounded-lg border border-blue-100">
-                <p className="text-sm text-gray-500 mb-1">🌾 Farmer</p>
-                <p className="font-sm text-gray-800">
-                  {extractedProfile.isFarmer ? t.yes : t.no}
-                </p>
-              </div>
-              <div className="bg-white p-3 rounded-lg border border-blue-100">
-                <p className="text-sm text-gray-500 mb-1">🏠 Need Housing?</p>
-                <p className="font-sm text-gray-800">
-                  {extractedProfile.needsHousing
-                    ? t.yes : t.no}
-                </p>
-              </div>
-              <div className="bg-white p-3 rounded-lg border border-blue-100">
-                <p className="text-sm text-gray-500 mb-1">🏥 Need Healthcare?</p>
-                <p className="font-sm text-gray-800">
-                  {extractedProfile.needsHealthcare
-                    ? t.yes : t.no}
-                </p>
-              </div>
-              <div className="bg-white p-3 rounded-lg border border-blue-100">
-                <p className="text-sm text-gray-500 mb-1">👩 Women</p>
-                <p className="font-sm text-gray-800">
-                  {extractedProfile.isWomen ? t.yes : t.no}
-                </p>
-              </div>
-              <div className="bg-white p-3 rounded-lg border border-blue-100">
-                <p className="text-sm text-gray-500 mb-1">📍 Location</p>
-                <p className="font-sm text-gray-800">{extractedProfile.location}</p>
-              </div>
-              <div className="bg-white p-3 rounded-lg border border-blue-100">
-                <p className="text-sm text-gray-500 mb-1">📋 State</p>
-                <p className="font-sm text-gray-800">{extractedProfile.state}</p>
-              </div>
-            </div>
-            {extractedProfile.registeredAddress !== "Not available" && (
-              <div className="mt-4 pt-4 border-t border-blue-200">
-                <p className="text-base text-gray-800 mb-1 font-semibold">
-                  📝 Registered Address{" "}
-                </p>
-                <p className="font-medium">
-                  {extractedProfile.registeredAddress}
-                </p>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Enhanced Instructions */}
+        {/*Instructions */}
         <div className="mt-8 bg-white rounded-xl p-6 shadow-sm border border-gray-100">
           <h3 className="font-semibold mb-4 text-lg text-gray-800">
             कैसे उपयोग करें | How to Use
@@ -1097,47 +1005,12 @@ export default function VoiceToBenefitPage() {
               </li>
             ))}
           </ol>
-
-          <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-100">
-            <div className="flex">
-              <div className="flex-shrink-0">
-                <svg
-                  className="h-5 w-5 text-blue-600"
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-              </div>
-              <div className="ml-3">
-                <h3 className="text-sm font-medium text-blue-800">
-                  🔒 सुरक्षा | Security
-                </h3>
-                <div className="mt-2 text-sm text-blue-700">
-                  <p>
-                    आपका डेटा सुरक्षित है और केवल आप ही इसे देख सकते हैं।
-                    <br />
-                    Your data is secure and only visible to you.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
         </div>
 
         {/* Enhanced Footer */}
         <footer className="mt-12 pt-6 border-t border-gray-200">
           <div className="text-center text-sm text-gray-600 space-y-2">
-            <p className="font-medium">
-              🏛️ Sahara - आपके अधिकारों का साथी | Your Rights Companion
-            </p>
-            <p className="text-xs">
-              Logged in as: {userProfile?.name || user?.email}
-            </p>
+            <p className="font-medium">🏛️ Sahara - Your Rights, Our Mission</p>
             <p className="text-xs opacity-70">
               Session: {sessionId?.slice(-8)}
             </p>
