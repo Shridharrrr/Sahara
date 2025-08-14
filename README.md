@@ -32,6 +32,6 @@ In India, millions of people miss out on welfare schemes due to lack of awarenes
 
 ---
 
-## Beta version released!!
-
 This project is licensed under the MIT License.
+
+## Beta version is out
